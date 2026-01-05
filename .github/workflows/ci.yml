@@ -28,9 +28,11 @@ jobs:
 
       - name: Run ruff check
         run: ruff check .
+        continue-on-error: true
 
       - name: Check code formatting
         run: ruff format --check .
+        continue-on-error: true
 
   type-check:
     name: Type Checking

@@ -8,7 +8,7 @@ try:
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
-    torch = None  # type: ignore[assignment, misc]
+    torch = None  # type: ignore[assignment]
 
 
 DeviceType = Literal["cpu", "cuda", "mps", "auto"]
