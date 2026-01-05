@@ -1,6 +1,6 @@
 import numpy as np
-from typing import Optional
-from scipy.cluster.vq import kmeans2
+from typing import Optional, cast
+from scipy.cluster.vq import kmeans2  # type: ignore[import-untyped]
 class ProductQuantizationService:
 
     """
@@ -66,7 +66,7 @@ class ProductQuantizationService:
             chunk = embedding[i * self.subdim:(i + 1) * self.subdim]
             nearest_centroid_idx = self._find_nearest_centroid(chunk, centroids[i])
             compressed_indices.append(nearest_centroid_idx)
-        return np.array(compressed_indices, dtype=np.int64)  # type: ignore[no-any-return]
+        return cast(np.ndarray, np.array(compressed_indices, dtype=np.int64))
 
     def compress(self, embeddings: np.ndarray) -> np.ndarray:
         """Compress embeddings using product quantization."""
@@ -85,6 +85,6 @@ class ProductQuantizationService:
             for embedding in embeddings
         ]
         
-        return np.array(compressed_embeddings, dtype=np.int64)  # type: ignore[no-any-return]
+        return cast(np.ndarray, np.array(compressed_embeddings, dtype=np.int64))
 
     

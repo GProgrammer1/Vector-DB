@@ -40,14 +40,14 @@ class EmbeddingService:
         embedding = self.model.encode(text, device=self.device)
         # Convert to numpy array if it's a tensor
         if hasattr(embedding, "numpy"):
-            return embedding.numpy()  # type: ignore[attr-defined, no-any-return]
-        return np.asarray(embedding)  # type: ignore[no-any-return]
+            return embedding.numpy()  # type: ignore[attr-defined]
+        return np.asarray(embedding)
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         """Generate embeddings for multiple text strings."""
         embeddings = self.model.encode(texts, device=self.device)
         # Convert to numpy array if it's a tensor
         if hasattr(embeddings, "numpy"):
-            return embeddings.numpy()  # type: ignore[attr-defined, no-any-return]
-        return np.asarray(embeddings)  # type: ignore[no-any-return]
+            return embeddings.numpy()  # type: ignore[attr-defined]
+        return np.asarray(embeddings)
 
