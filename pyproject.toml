@@ -120,6 +120,8 @@ module = [
     "hnswlib.*",
     "faiss.*",
     "annoy.*",
+    "scipy.*",
+    "sentence_transformers.*",
 ]
 ignore_missing_imports = true
 
