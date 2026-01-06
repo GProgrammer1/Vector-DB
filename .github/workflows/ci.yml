@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/**
+      - feature/hnsw
   pull_request:
     branches:
       - main
