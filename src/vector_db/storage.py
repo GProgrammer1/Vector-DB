@@ -144,9 +144,9 @@ class MMapNodeStorage(NodeStorage):
         )
 
         # Track size and id_to_index mapping
-            self._id_to_index: Dict[int, int] = {}
+        self._id_to_index: Dict[int, int] = {}
         if mode == "r+":
-            # Find all valid entries 
+            # Find all valid entries
             # We use a heuristic: if embedding has non-zero values, it's valid
             valid_indices = []
             for idx in range(self.capacity):
