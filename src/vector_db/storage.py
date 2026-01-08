@@ -368,7 +368,8 @@ class DiskNodeStorage(NodeStorage):
         max_id = cursor.fetchone()[0]
         self._next_index = (max_id + 1) if max_id is not None else 0
 
-            self._id_to_index: Dict[int, int] = {}
+        # Create mapping: node_id -> memmap_index
+        self._id_to_index: Dict[int, int] = {}
         cursor = self.conn.execute("SELECT node_id FROM nodes ORDER BY node_id")
         for idx, (node_id,) in enumerate(cursor.fetchall()):
             self._id_to_index[node_id] = idx
