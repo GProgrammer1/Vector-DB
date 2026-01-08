@@ -125,6 +125,14 @@ module = [
     "annoy.*",
     "scipy.*",
     "sentence_transformers.*",
+    "yaml",
+    "yaml.*",
+    "torch",
+    "torch.*",
+    "pydantic",
+    "pydantic.*",
+    "fastapi",
+    "fastapi.*",
 ]
 ignore_missing_imports = true
 

@@ -59,11 +59,12 @@ def embed_document(insert_request: InsertRequest):
             config_path=str(CONFIG_PATH)
         )
         
-        # Write embedding to store
-        idx = vector_store.write(embedding)
-        
-        # Add to HNSW index
-        vector_store.index.insert_node(node_id=idx, embedding=embedding)
+        # Write embedding to store (automatically adds to index)
+        idx = vector_store.write(
+            embedding=embedding,
+            content=content,
+            metadata=insert_request.metadata
+        )
         
         return InsertResponse(
             status_code=200,
