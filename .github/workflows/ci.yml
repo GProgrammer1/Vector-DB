@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - fix/**
-      - feature/hnsw
+      - feature/indexing
   pull_request:
     branches:
       - main

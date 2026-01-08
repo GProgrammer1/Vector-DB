@@ -1,13 +1,14 @@
 import numpy as np
 from typing import Optional
 from scipy.cluster.vq import kmeans2
+from concurrent.futures import ProcessPoolExecutor
 class ProductQuantizationService:
 
     """
     Product quantization service for compressing embeddings.
     The service is used to compress embeddings into a smaller number of bits.
     The service is used to decompress embeddings into their original dimension.
-    k: k-means paramater (number of centroids)
+    k: k-means parameter (number of centroids)
     chunks: number of chunks to split the embedding into
     dim: dimension of the embedding
     """
@@ -38,21 +39,38 @@ class ProductQuantizationService:
 
     def _chunk_embeddings(self, embeddings: np.ndarray) -> list[list[np.ndarray]]:
         """Split embeddings into chunks and collect chunks by position."""
-        chunks: list[list[np.ndarray]] = [[] for _ in range(self.chunks)]
-        for embedding in embeddings:
-            for i in range(self.chunks):
-                chunk = embedding[i * self.subdim:(i + 1) * self.subdim]
-                chunks[i].append(chunk)
-        return chunks
+        N, D = embeddings.shape
 
-    def _compute_centroids(self, chunks: list[list[np.ndarray]]) -> list[np.ndarray]:
-        """Apply k-means clustering to each chunk to compute centroids."""
-        centroids: list[np.ndarray] = []
-        for chunk_list in chunks:
-            chunk_array = np.array(chunk_list)
-            chunk_centroids, _ = kmeans2(chunk_array, self.k, iter=100, minit='points')
-            centroids.append(chunk_centroids)
+        # Ensure embedding dimension matches expected total size
+        assert D == self.subdim * self.chunks
+
+        # Reshape embeddings to (N, chunks, subdim) so each embedding is split into `chunks` sub-vectors
+        reshaped = embeddings.reshape(N, self.chunks, self.subdim)
+
+        # Reorder axes to (chunks, N, subdim) to group all vectors of the same chunk index together
+        chunks = reshaped.transpose(1, 0, 2)
+
+        # Convert each chunk into a list of vectors for more processing
+        return [list(chunk) for chunk in chunks]
+
+    def _kmeans_chunk(args):
+        chunk_list, k = args
+        chunk_array = np.array(chunk_list, dtype=np.float32)
+        centroids, _ = kmeans2(chunk_array, k, iter=100, minit='points')
         return centroids
+
+    
+    def _compute_centroids(self, chunks: list[list[np.ndarray]]) -> list[np.ndarray]:
+        """
+        Apply k-means clustering to each chunk in parallel across multiple processes.
+        """
+        args = [(chunk, self.k) for chunk in chunks]
+
+        # Share work on multiple processes
+        with ProcessPoolExecutor() as executor:
+            results = executor.map(self._kmeans_chunk, args)
+
+        return list(results)
 
     def _find_nearest_centroid(self, chunk: np.ndarray, centroids: np.ndarray) -> int:
         """Find the index of the nearest centroid for a given chunk."""
@@ -66,7 +84,7 @@ class ProductQuantizationService:
             chunk = embedding[i * self.subdim:(i + 1) * self.subdim]
             nearest_centroid_idx = self._find_nearest_centroid(chunk, centroids[i])
             compressed_indices.append(nearest_centroid_idx)
-        return np.array(compressed_indices, dtype=np.int64)  # type: ignore[no-any-return]
+        return np.array(compressed_indices, dtype=np.int64)  
 
     def compress(self, embeddings: np.ndarray) -> np.ndarray:
         """Compress embeddings using product quantization."""
@@ -85,6 +103,6 @@ class ProductQuantizationService:
             for embedding in embeddings
         ]
         
-        return np.array(compressed_embeddings, dtype=np.int64)  # type: ignore[no-any-return]
+        return np.array(compressed_embeddings, dtype=np.int64) 
 
     
