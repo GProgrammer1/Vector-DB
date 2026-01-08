@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import tempfile
 import os
+import yaml
 from pathlib import Path
 
 from vector_db.inference.mmap_vector_store import MemoryMappingService
@@ -12,265 +13,373 @@ from vector_db.inference.mmap_vector_store import MemoryMappingService
 class TestMemoryMappingService:
     """Test suite for MemoryMappingService."""
 
+    def _create_temp_config(self, tmpdir: str) -> str:
+        """Create a temporary config file for testing."""
+        config_path = os.path.join(tmpdir, "config.yaml")
+        config = {
+            "index": {
+                "M": 4,
+                "ef_construction": 10
+            }
+        }
+        with open(config_path, "w") as f:
+            yaml.dump(config, f)
+        return config_path
+
     def test_init_valid_params(self):
         """Test initialization with valid parameters."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=128, capacity=1000)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=128,
+                capacity=1000,
+                config_path=config_path
+            )
             assert service.dim == 128
             assert service.capacity == 1000
             assert service.size == 0
             assert service.file_path == Path(tmp_path)
-        finally:
-            os.unlink(tmp_path)
 
     def test_init_invalid_dim(self):
         """Test initialization with invalid dimension."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
             with pytest.raises(ValueError, match="Dimension must be greater than 0"):
-                MemoryMappingService(tmp_path, dim=0, capacity=1000)
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                MemoryMappingService(
+                    file_path=tmp_path,
+                    dim=0,
+                    capacity=1000,
+                    config_path=config_path
+                )
 
     def test_init_invalid_capacity(self):
         """Test initialization with invalid capacity."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
             with pytest.raises(ValueError, match="Capacity must be greater than 0"):
-                MemoryMappingService(tmp_path, dim=128, capacity=0)
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                MemoryMappingService(
+                    file_path=tmp_path,
+                    dim=128,
+                    capacity=0,
+                    config_path=config_path
+                )
+
+    def test_init_missing_config_path(self):
+        """Test initialization without config_path."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            with pytest.raises(ValueError, match="config_path is required"):
+                MemoryMappingService(
+                    file_path=tmp_path,
+                    dim=128,
+                    capacity=1000
+                )
 
     def test_write_single_embedding(self):
         """Test writing a single embedding."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
             embedding = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
             
-            idx = service.write(embedding)
+            node_id = service.write(embedding)
             
-            assert idx == 0
+            assert isinstance(node_id, int)
+            assert node_id >= 0
             assert service.size == 1
-            # Verify the embedding was written correctly
-            np.testing.assert_array_equal(service.file[0], embedding)
-        finally:
-            os.unlink(tmp_path)
 
     def test_write_multiple_embeddings(self):
         """Test writing multiple embeddings."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
             embeddings = [
                 np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32),
                 np.array([5.0, 6.0, 7.0, 8.0], dtype=np.float32),
                 np.array([9.0, 10.0, 11.0, 12.0], dtype=np.float32),
             ]
             
-            indices = [service.write(emb) for emb in embeddings]
+            node_ids = [service.write(emb) for emb in embeddings]
             
-            assert indices == [0, 1, 2]
+            assert len(node_ids) == 3
+            assert all(isinstance(nid, int) for nid in node_ids)
             assert service.size == 3
-            # Verify all embeddings were written correctly
-            for i, emb in enumerate(embeddings):
-                np.testing.assert_array_equal(service.file[i], emb)
-        finally:
-            os.unlink(tmp_path)
+
+    def test_write_with_content_and_metadata(self):
+        """Test writing with content and metadata."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
+            embedding = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+            
+            node_id = service.write(
+                embedding,
+                content="test content",
+                metadata={"key": "value", "num": 42}
+            )
+            
+            node = service.read(node_id)
+            assert node.content == "test content"
+            assert node.metadata["key"] == "value"
+            assert node.metadata["num"] == 42
 
     def test_write_invalid_type(self):
         """Test writing with invalid type."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
             with pytest.raises(TypeError, match="Embedding must be a numpy array"):
                 service.write([1.0, 2.0, 3.0, 4.0])
-        finally:
-            os.unlink(tmp_path)
-
-    def test_write_wrong_dtype(self):
-        """Test writing with wrong dtype."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
-            embedding = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
-            with pytest.raises(TypeError, match="Embedding must be a float32 array"):
-                service.write(embedding)
-        finally:
-            os.unlink(tmp_path)
 
     def test_write_wrong_dimension(self):
         """Test writing with wrong array dimension."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
             # 2D array instead of 1D
             embedding = np.array([[1.0, 2.0, 3.0, 4.0]], dtype=np.float32)
             with pytest.raises(ValueError, match="Embedding must be a 1D array"):
                 service.write(embedding)
-        finally:
-            os.unlink(tmp_path)
 
     def test_write_wrong_size(self):
         """Test writing with wrong embedding size."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
             embedding = np.array([1.0, 2.0, 3.0], dtype=np.float32)  # size 3 instead of 4
             with pytest.raises(ValueError, match="Embedding must be of dimension 4"):
                 service.write(embedding)
-        finally:
-            os.unlink(tmp_path)
-
-    def test_write_capacity_exceeded(self):
-        """Test writing when capacity is exceeded."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=2)
-            embeddings = [
-                np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32),
-                np.array([5.0, 6.0, 7.0, 8.0], dtype=np.float32),
-            ]
-            
-            # Write up to capacity
-            for emb in embeddings:
-                service.write(emb)
-            
-            # Try to write one more
-            with pytest.raises(RuntimeError, match="Memory-mapped file is full"):
-                service.write(np.array([9.0, 10.0, 11.0, 12.0], dtype=np.float32))
-        finally:
-            os.unlink(tmp_path)
 
     def test_read_single_embedding(self):
         """Test reading a single embedding."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
             embedding = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-            idx = service.write(embedding)
+            node_id = service.write(embedding)
             
-            read_embedding = service.read(idx)
+            node = service.read(node_id)
             
-            assert isinstance(read_embedding, np.ndarray)
-            np.testing.assert_array_equal(read_embedding, embedding)
-        finally:
-            os.unlink(tmp_path)
+            assert node.id == node_id
+            np.testing.assert_array_equal(node.embedding, embedding)
 
     def test_read_multiple_embeddings(self):
         """Test reading multiple embeddings."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
             embeddings = [
                 np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32),
                 np.array([5.0, 6.0, 7.0, 8.0], dtype=np.float32),
                 np.array([9.0, 10.0, 11.0, 12.0], dtype=np.float32),
             ]
             
-            indices = [service.write(emb) for emb in embeddings]
+            node_ids = [service.write(emb) for emb in embeddings]
             
             # Read all embeddings
-            for i, expected_emb in enumerate(embeddings):
-                read_emb = service.read(i)
-                np.testing.assert_array_equal(read_emb, expected_emb)
-        finally:
-            os.unlink(tmp_path)
+            for node_id, expected_emb in zip(node_ids, embeddings):
+                node = service.read(node_id)
+                np.testing.assert_array_equal(node.embedding, expected_emb)
 
     def test_read_invalid_index_type(self):
         """Test reading with invalid index type."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
-            with pytest.raises(TypeError, match="Index must be an integer"):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
+            with pytest.raises(TypeError, match="Node ID must be an integer"):
                 service.read("0")
-        finally:
-            os.unlink(tmp_path)
 
-    def test_read_negative_index(self):
-        """Test reading with negative index."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
-            embedding = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-            service.write(embedding)
+    def test_read_nonexistent_node(self):
+        """Test reading a non-existent node."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
             
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
+            
+            with pytest.raises(IndexError, match="Node 999 not found"):
+                service.read(999)
+
+    def test_get_embedding(self):
+        """Test getting embedding directly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
+            embedding = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+            node_id = service.write(embedding)
+            
+            retrieved_emb = service.get_embedding(node_id)
+            np.testing.assert_array_equal(retrieved_emb, embedding)
+
+    def test_delete(self):
+        """Test deleting a node."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
+            embedding = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+            node_id = service.write(embedding)
+            
+            assert service.size == 1
+            
+            service.delete(node_id)
+            
+            assert service.size == 0
             with pytest.raises(IndexError):
-                service.read(-1)
-        finally:
-            os.unlink(tmp_path)
+                service.read(node_id)
 
-    def test_read_index_out_of_bounds(self):
-        """Test reading with index out of bounds."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
-            service = MemoryMappingService(tmp_path, dim=4, capacity=10)
-            embedding = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
-            service.write(embedding)
+    def test_search(self):
+        """Test search functionality."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
             
-            with pytest.raises(IndexError, match="Index must be between 0 and 0"):
-                service.read(1)  # Only 1 embedding written, index 1 is out of bounds
-        finally:
-            os.unlink(tmp_path)
+            service = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path
+            )
+            # Insert some embeddings
+            embeddings = [
+                np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32),
+                np.array([0.0, 1.0, 0.0, 0.0], dtype=np.float32),
+                np.array([0.0, 0.0, 1.0, 0.0], dtype=np.float32),
+            ]
+            for emb in embeddings:
+                service.write(emb)
+            
+            # Search for nearest neighbor
+            query = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
+            results = service.search(query, k=2, ef=10)
+            
+            assert len(results) > 0
+            assert len(results) <= 2
+            # First result should be the query itself (distance ~0)
+            first_node, first_dist = results[0]
+            assert first_dist < 1e-6
 
     def test_persistence(self):
         """Test that data persists when reopening the file."""
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-        
-        try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = self._create_temp_config(tmpdir)
+            tmp_path = os.path.join(tmpdir, "vectors")
+            index_file = os.path.join(tmpdir, "index.pkl")
+            
             # Write data
-            service1 = MemoryMappingService(tmp_path, dim=4, capacity=10)
+            service1 = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path,
+                index_file=index_file
+            )
             embeddings = [
                 np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32),
                 np.array([5.0, 6.0, 7.0, 8.0], dtype=np.float32),
             ]
-            indices = [service1.write(emb) for emb in embeddings]
+            node_ids = [service1.write(emb, content=f"node_{i}") for i, emb in enumerate(embeddings)]
             del service1  # Close the file
             
             # Reopen and read
-            # Note: size is not persisted, so we need to manually track it
-            # or read directly from file indices
-            service2 = MemoryMappingService(tmp_path, dim=4, capacity=10)
-            # Data is persisted in the file, but size counter resets
-            # We can still read the data directly from the file
-            np.testing.assert_array_equal(service2.file[0], embeddings[0])
-            np.testing.assert_array_equal(service2.file[1], embeddings[1])
-            # Size resets to 0 when reopening
-            assert service2.size == 0
-        finally:
-            os.unlink(tmp_path)
-
+            service2 = MemoryMappingService(
+                file_path=tmp_path,
+                dim=4,
+                capacity=10,
+                config_path=config_path,
+                index_file=index_file
+            )
+            # Verify data persisted
+            assert service2.size == 2
+            for node_id, expected_emb in zip(node_ids, embeddings):
+                node = service2.read(node_id)
+                np.testing.assert_array_equal(node.embedding, expected_emb)
