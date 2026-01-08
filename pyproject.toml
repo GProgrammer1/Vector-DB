@@ -36,6 +36,7 @@ dependencies = [
     "transformers>=4.30.0",
     "tokenizers>=0.13.0",
 
+    "pyyaml>=6.0.0",
     "locust>=2.0.0",
 ]
 
@@ -124,6 +125,14 @@ module = [
     "annoy.*",
     "scipy.*",
     "sentence_transformers.*",
+    "yaml",
+    "yaml.*",
+    "torch",
+    "torch.*",
+    "pydantic",
+    "pydantic.*",
+    "fastapi",
+    "fastapi.*",
 ]
 ignore_missing_imports = true
 

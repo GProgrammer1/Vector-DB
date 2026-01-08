@@ -1,6 +1,6 @@
 """Device management utilities for CPU/GPU flexibility."""
 
-from typing import Any, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 try:
     import torch
@@ -72,7 +72,7 @@ def is_gpu_available() -> bool:
     return cuda_available or mps_available
 
 
-def get_device_info() -> dict[str, Any]:
+def get_device_info() -> Dict[str, Any]:
     """
     Get information about available devices.
 
@@ -84,7 +84,7 @@ def get_device_info() -> dict[str, Any]:
         - cuda_device_count: Number of CUDA devices
         - cuda_device_name: Name of CUDA device (if available)
     """
-    info: dict[str, Any] = {
+    info: Dict[str, Any] = {
         "device": get_device(),
         "cuda_available": False,
         "mps_available": False,

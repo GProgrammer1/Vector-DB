@@ -1,0 +1,11 @@
+embedding:
+  model: "sentence-transformers/all-MiniLM-L6-v2"
+  dimension: 384
+device: CPU
+index:
+  ef_construction: 200
+  M: 16
+vector_db:
+  file_path: ../vector_db
+  dimension: 384
+  capacity: 1000000

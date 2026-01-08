@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/**
+      - feature/indexing
   pull_request:
     branches:
       - main
