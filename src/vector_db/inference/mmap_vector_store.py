@@ -2,6 +2,7 @@ import numpy as np
 import random
 import yaml
 from pathlib import Path
+from typing import Optional, List, Tuple, Dict, Any
 
 from ..indexing.hnsw import HNSW
 from ..storage import MMapNodeStorage
@@ -24,8 +25,8 @@ class MemoryMappingService:
         file_path: str,
         dim: int,
         capacity: int,
-        config_path: str | None = None,
-        index_file: str | None = None,
+        config_path: Optional[str] = None,
+        index_file: Optional[str] = None,
     ):
         """
         Args:
@@ -82,8 +83,8 @@ class MemoryMappingService:
     def write(
         self,
         embedding: np.ndarray,
-        content: str | None = None,
-        metadata: dict | None = None,
+        content: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> int:
         """
         Write an embedding to storage and add to index.
@@ -161,7 +162,7 @@ class MemoryMappingService:
         
         self.size = self.storage.size()
 
-    def search(self, query: np.ndarray, k: int, ef: int = 50) -> list[tuple[Node, float]]:
+    def search(self, query: np.ndarray, k: int, ef: int = 50) -> List[Tuple[Node, float]]:
         """
         Search for k nearest neighbors.
 

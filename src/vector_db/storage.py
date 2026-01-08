@@ -4,7 +4,7 @@ import json
 import sqlite3
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, List, Dict
 from pathlib import Path
 
 import numpy as np
@@ -31,7 +31,7 @@ class NodeStorage(ABC):
         pass
 
     @abstractmethod
-    def get_all_ids(self) -> list[int]:
+    def get_all_ids(self) -> List[int]:
         """Get all node IDs in storage."""
         pass
 
@@ -56,7 +56,7 @@ class InMemoryNodeStorage(NodeStorage):
 
     def __init__(self):
         """Initialize in-memory storage."""
-        self._nodes: dict[int, Node] = {}
+        self._nodes: Dict[int, Node] = {}
         self._next_id = 0
 
     def save(self, node: Node) -> None:
@@ -80,7 +80,7 @@ class InMemoryNodeStorage(NodeStorage):
             raise KeyError(f"Node {node_id} not found")
         return node.embedding
 
-    def get_all_ids(self) -> list[int]:
+    def get_all_ids(self) -> List[int]:
         """Get all node IDs."""
         return list(self._nodes.keys())
 
@@ -144,7 +144,7 @@ class MMapNodeStorage(NodeStorage):
         )
 
         # Track size and id_to_index mapping
-        self._id_to_index: dict[int, int] = {}
+            self._id_to_index: Dict[int, int] = {}
         if mode == "r+":
             # Find all valid entries 
             # We use a heuristic: if embedding has non-zero values, it's valid
@@ -258,7 +258,7 @@ class MMapNodeStorage(NodeStorage):
         idx = self._id_to_index[node_id]
         return self.embeddings[idx]["embedding"]
 
-    def get_all_ids(self) -> list[int]:
+    def get_all_ids(self) -> List[int]:
         """Get all node IDs."""
         return list(self._id_to_index.keys())
 
@@ -368,7 +368,7 @@ class DiskNodeStorage(NodeStorage):
         max_id = cursor.fetchone()[0]
         self._next_index = (max_id + 1) if max_id is not None else 0
 
-        self._id_to_index: dict[int, int] = {}
+            self._id_to_index: Dict[int, int] = {}
         cursor = self.conn.execute("SELECT node_id FROM nodes ORDER BY node_id")
         for idx, (node_id,) in enumerate(cursor.fetchall()):
             self._id_to_index[node_id] = idx
@@ -425,7 +425,7 @@ class DiskNodeStorage(NodeStorage):
         memmap_idx = self._id_to_index[node_id]
         return self.embeddings[memmap_idx]
 
-    def get_all_ids(self) -> list[int]:
+    def get_all_ids(self) -> List[int]:
         """Get all node IDs."""
         cursor = self.conn.execute("SELECT node_id FROM nodes ORDER BY node_id")
         return [row[0] for row in cursor.fetchall()]

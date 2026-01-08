@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 
 class InsertRequest(BaseModel):
     content: str
-    metadata: dict[str, Any] | None = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class InsertResponse(BaseModel):

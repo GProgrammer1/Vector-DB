@@ -5,7 +5,7 @@ import random
 import math
 import heapq
 from pathlib import Path
-from typing import Optional, List, Set, Tuple, Union
+from typing import Optional, List, Set, Tuple, Union, Dict
 
 from ..types import Node
 from ..util.distance import euclidean_vector_distance
@@ -25,7 +25,7 @@ class HNSW:
 
         def __init__(self, node_id: int):
             self.id = node_id
-            self.neighbors: dict[int, list[int]] = {}  # level -> list of neighbor node IDs
+            self.neighbors: Dict[int, List[int]] = {}  # level -> list of neighbor node IDs
 
     def __init__(
         self,
@@ -54,7 +54,7 @@ class HNSW:
         self.index_file = Path(index_file) if index_file else None
 
         # Graph structure: only node IDs and neighbors
-        self.node_store: dict[int, HNSW.InternalNode] = {}  # node_id -> InternalNode
+        self.node_store: Dict[int, HNSW.InternalNode] = {}  # node_id -> InternalNode
         self.entry_node_id: Optional[int] = None
         self.max_level = -1
         self.level_mult = 1 / math.log(M)

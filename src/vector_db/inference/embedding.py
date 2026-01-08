@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional
+from typing import Optional, List
 
 from sentence_transformers import SentenceTransformer
 from vector_db.inference.device import DeviceType, get_device
@@ -43,7 +43,7 @@ class EmbeddingService:
             return embedding.numpy()  
         return np.asarray(embedding)  
 
-    def embed_texts(self, texts: list[str]) -> np.ndarray:
+    def embed_texts(self, texts: List[str]) -> np.ndarray:
         """Generate embeddings for multiple text strings."""
         embeddings = self.model.encode(texts, device=self.device)
         # Convert to numpy array if it's a tensor

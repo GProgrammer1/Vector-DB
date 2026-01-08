@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Optional
+from typing import Optional, List
 from scipy.cluster.vq import kmeans2
 from concurrent.futures import ProcessPoolExecutor
 class ProductQuantizationService:
@@ -26,7 +26,7 @@ class ProductQuantizationService:
         self.chunks = chunks
         self.dim = dim
         self.subdim = dim // chunks
-        self.centroids: Optional[list[np.ndarray]] = None
+        self.centroids: Optional[List[np.ndarray]] = None
 
     def _validate_embeddings(self, embeddings: np.ndarray) -> None:
         """Validate input embeddings."""
@@ -37,7 +37,7 @@ class ProductQuantizationService:
         if embeddings.shape[1] != self.dim:
             raise ValueError(f"Embedding dimension must be {self.dim}, got {embeddings.shape[1]}")
 
-    def _chunk_embeddings(self, embeddings: np.ndarray) -> list[list[np.ndarray]]:
+    def _chunk_embeddings(self, embeddings: np.ndarray) -> List[List[np.ndarray]]:
         """Split embeddings into chunks and collect chunks by position."""
         N, D = embeddings.shape
 
@@ -60,7 +60,7 @@ class ProductQuantizationService:
         return centroids
 
     
-    def _compute_centroids(self, chunks: list[list[np.ndarray]]) -> list[np.ndarray]:
+    def _compute_centroids(self, chunks: List[List[np.ndarray]]) -> List[np.ndarray]:
         """
         Apply k-means clustering to each chunk in parallel across multiple processes.
         """
@@ -77,7 +77,7 @@ class ProductQuantizationService:
         distances = np.linalg.norm(centroids - chunk, axis=1)
         return int(np.argmin(distances))
 
-    def _compress_embedding(self, embedding: np.ndarray, centroids: list[np.ndarray]) -> np.ndarray:
+    def _compress_embedding(self, embedding: np.ndarray, centroids: List[np.ndarray]) -> np.ndarray:
         """Compress a single embedding by finding nearest centroids for each chunk."""
         compressed_indices = []
         for i in range(self.chunks):
