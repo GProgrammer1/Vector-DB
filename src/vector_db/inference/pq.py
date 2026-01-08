@@ -1,7 +1,17 @@
 import numpy as np
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from scipy.cluster.vq import kmeans2
 from concurrent.futures import ProcessPoolExecutor
+
+
+def _kmeans_chunk_worker(args: Tuple[List[np.ndarray], int]) -> np.ndarray:
+    """Worker function for parallel k-means computation (must be module-level for pickling)."""
+    chunk_list, k = args
+    chunk_array = np.array(chunk_list, dtype=np.float32)
+    centroids, _ = kmeans2(chunk_array, k, iter=100, minit='points')
+    return centroids
+
+
 class ProductQuantizationService:
 
     """
@@ -53,13 +63,6 @@ class ProductQuantizationService:
         # Convert each chunk into a list of vectors for more processing
         return [list(chunk) for chunk in chunks]
 
-    def _kmeans_chunk(args):
-        chunk_list, k = args
-        chunk_array = np.array(chunk_list, dtype=np.float32)
-        centroids, _ = kmeans2(chunk_array, k, iter=100, minit='points')
-        return centroids
-
-    
     def _compute_centroids(self, chunks: List[List[np.ndarray]]) -> List[np.ndarray]:
         """
         Apply k-means clustering to each chunk in parallel across multiple processes.
@@ -67,8 +70,9 @@ class ProductQuantizationService:
         args = [(chunk, self.k) for chunk in chunks]
 
         # Share work on multiple processes
+        # Use module-level function for pickling compatibility
         with ProcessPoolExecutor() as executor:
-            results = executor.map(self._kmeans_chunk, args)
+            results = executor.map(_kmeans_chunk_worker, args)
 
         return list(results)
 
