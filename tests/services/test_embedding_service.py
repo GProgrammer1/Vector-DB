@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import tempfile
 from pathlib import Path
+from unittest.mock import Mock, patch, MagicMock
 
 try:
     from vector_db.services.embedding_service import EmbeddingService
@@ -43,22 +44,63 @@ vector_db:
 class TestEmbeddingService:
     """Test suite for EmbeddingService."""
 
-    def test_init(self, dummy_config_file):
+    @patch('vector_db.services.embedding_service._SENTENCE_TRANSFORMERS_AVAILABLE', True)
+    @patch('vector_db.services.embedding_service.SentenceTransformer')
+    @patch('vector_db.services.embedding_service.BaseEmbeddingService')
+    def test_init(self, mock_base_service, mock_sentence_transformer, dummy_config_file):
         """Test service initialization."""
+        # Mock SentenceTransformer
+        mock_model = Mock()
+        mock_model.to = Mock(return_value=mock_model)
+        mock_sentence_transformer.return_value = mock_model
+        
+        # Mock BaseEmbeddingService
+        mock_base_instance = Mock()
+        mock_base_service.return_value = mock_base_instance
+        
         service = EmbeddingService(config_path=dummy_config_file)
         assert service.dim == 384
 
-    def test_embed_text(self, dummy_config_file):
+    @patch('vector_db.services.embedding_service._SENTENCE_TRANSFORMERS_AVAILABLE', True)
+    @patch('vector_db.services.embedding_service.SentenceTransformer')
+    @patch('vector_db.services.embedding_service.BaseEmbeddingService')
+    def test_embed_text(self, mock_base_service, mock_sentence_transformer, dummy_config_file):
         """Test embedding a single text."""
+        # Mock SentenceTransformer
+        mock_model = Mock()
+        mock_model.to = Mock(return_value=mock_model)
+        mock_sentence_transformer.return_value = mock_model
+        
+        # Mock the base embedding service
+        mock_service_instance = Mock()
+        expected_embedding = np.random.rand(384).astype(np.float32)
+        mock_service_instance.embed_text = Mock(return_value=expected_embedding)
+        mock_base_service.return_value = mock_service_instance
+        
         service = EmbeddingService(config_path=dummy_config_file)
         embedding = service.embed_text("Hello, world!")
         
         assert isinstance(embedding, np.ndarray)
         assert embedding.shape == (384,)
         assert embedding.dtype == np.float32
+        mock_service_instance.embed_text.assert_called_once_with("Hello, world!")
 
-    def test_embed_texts(self, dummy_config_file):
+    @patch('vector_db.services.embedding_service._SENTENCE_TRANSFORMERS_AVAILABLE', True)
+    @patch('vector_db.services.embedding_service.SentenceTransformer')
+    @patch('vector_db.services.embedding_service.BaseEmbeddingService')
+    def test_embed_texts(self, mock_base_service, mock_sentence_transformer, dummy_config_file):
         """Test embedding multiple texts."""
+        # Mock SentenceTransformer
+        mock_model = Mock()
+        mock_model.to = Mock(return_value=mock_model)
+        mock_sentence_transformer.return_value = mock_model
+        
+        # Mock the base embedding service
+        mock_service_instance = Mock()
+        expected_embeddings = np.random.rand(3, 384).astype(np.float32)
+        mock_service_instance.embed_texts = Mock(return_value=expected_embeddings)
+        mock_base_service.return_value = mock_service_instance
+        
         service = EmbeddingService(config_path=dummy_config_file)
         texts = ["Hello", "World", "Test"]
         embeddings = service.embed_texts(texts)
@@ -66,9 +108,22 @@ class TestEmbeddingService:
         assert isinstance(embeddings, np.ndarray)
         assert embeddings.shape == (3, 384)
         assert embeddings.dtype == np.float32
+        mock_service_instance.embed_texts.assert_called_once_with(texts)
 
-    def test_dimension_property(self, dummy_config_file):
+    @patch('vector_db.services.embedding_service._SENTENCE_TRANSFORMERS_AVAILABLE', True)
+    @patch('vector_db.services.embedding_service.SentenceTransformer')
+    @patch('vector_db.services.embedding_service.BaseEmbeddingService')
+    def test_dimension_property(self, mock_base_service, mock_sentence_transformer, dummy_config_file):
         """Test dimension property."""
+        # Mock SentenceTransformer
+        mock_model = Mock()
+        mock_model.to = Mock(return_value=mock_model)
+        mock_sentence_transformer.return_value = mock_model
+        
+        # Mock BaseEmbeddingService
+        mock_base_instance = Mock()
+        mock_base_service.return_value = mock_base_instance
+        
         service = EmbeddingService(config_path=dummy_config_file)
         assert service.dim == 384
 
