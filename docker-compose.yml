@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  embedding-service:
+    build:
+      context: .
+      dockerfile: docker/embedding-service/Dockerfile
+    container_name: vector-db-embedding
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./src/config.yaml:/app/config.yaml:ro
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Allow scaling independently (can scale GPU instances separately)
+    deploy:
+      replicas: 1
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  indexing-service:
+    build:
+      context: .
+      dockerfile: docker/indexing-service/Dockerfile
+    container_name: vector-db-indexing
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./src/config.yaml:/app/config.yaml:ro
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - USE_EMBEDDING_SERVICE=true
+      - EMBEDDING_SERVICE_URL=http://embedding-service:8001
+    depends_on:
+      embedding-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Allow scaling independently
+    deploy:
+      replicas: 1
+

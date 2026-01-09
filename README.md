@@ -1,81 +1,111 @@
-# Vector DB
+# Vector Database Engine
 
-A high-performance Vector Database engine built from scratch with support for embeddings, similarity search, and product quantization.
+A high-performance vector database engine built from scratch with support for approximate nearest neighbor search, product quantization, and memory-mapped storage.
 
-## Features
+## Architecture
 
-- **Vector Storage & Indexing**: Efficient storage and retrieval of high-dimensional vectors
-- **Similarity Search**: Fast approximate nearest neighbor (ANN) search
-- **Product Quantization**: Advanced compression techniques for large-scale vector databases
-- **REST API**: FastAPI-based API for easy integration
-- **Embedding Support**: Integration with transformers for generating embeddings
+### Decoupled Service Architecture
 
-## Installation
+The system uses a **decoupled microservices architecture** that separates GPU-intensive embedding generation from CPU-bound indexing operations, enabling independent scaling:
+
+- **Embedding Service** (Port 8001): GPU-optimized service for generating embeddings using sentence-transformers
+  - Can be scaled independently based on GPU availability
+  - Handles batch embedding requests
+  - Stateless and horizontally scalable
+
+- **Indexing Service** (Port 8000): CPU-bound service for indexing and search operations
+  - Manages HNSW index lifecycle
+  - Handles storage and retrieval
+  - Communicates with embedding service via HTTP API
+  - Can be scaled independently based on CPU/memory needs
+
+### Key Features
+
+- **HNSW Indexing**: Hierarchical Navigable Small World graph for fast approximate nearest neighbor search
+- **Memory-Mapped Storage**: Two-layer memmap storage for efficient disk-backed persistence
+- **Product Quantization**: Compression technique for reducing memory footprint
+- **Threshold-Based Persistence**: Automatic index flushing when memory threshold is reached
+- **Docker Containerization**: Fully containerized services with docker-compose orchestration
+
+## Quick Start
+
+### Using Docker Compose (Recommended)
 
 ```bash
-# Install the package in editable mode (CPU version by default)
-pip install -e .
+# Start both services
+docker-compose up -d
 
-# Install with development dependencies
+# Scale services independently
+docker-compose up -d --scale embedding-service=3 --scale indexing-service=2
+
+# Check service health
+curl http://localhost:8001/health  # Embedding service
+curl http://localhost:8000/health  # Indexing service
+```
+
+### Manual Setup
+
+1. Install dependencies:
+```bash
 pip install -e ".[dev]"
-
-# Install with all optional dependencies
-pip install -e ".[all]"
 ```
 
-### GPU Support
-
-The package works with both CPU and GPU. By default, it installs the CPU version of PyTorch (no NVIDIA dependencies required).
-
-**For NVIDIA GPU users (optional):**
+2. Start embedding service:
 ```bash
-# First install PyTorch with CUDA support
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-
-# Then install the package
-pip install -e .
+cd docker/embedding-service
+uvicorn app:app --host 0.0.0.0 --port 8001
 ```
 
-The code automatically detects and uses the best available device (CPU, CUDA, or Apple Silicon MPS). You can also explicitly specify the device:
-
-```python
-from vector_db.inference import EmbeddingService, get_device, get_device_info
-from sentence_transformers import SentenceTransformer
-
-# Check available devices
-print(get_device_info())
-
-# Auto-detect best device (default)
-model = SentenceTransformer("all-MiniLM-L6-v2")
-service = EmbeddingService(model, device="auto")
-
-# Force CPU
-service = EmbeddingService(model, device="cpu")
-
-# Use GPU if available
-service = EmbeddingService(model, device="cuda")
+3. Start indexing service:
+```bash
+export USE_EMBEDDING_SERVICE=true
+export EMBEDDING_SERVICE_URL=http://localhost:8001
+uvicorn src.vector_db.api.app:app --host 0.0.0.0 --port 8000
 ```
+
+## API Endpoints
+
+### Indexing Service (Port 8000)
+
+- `POST /embed` - Embed a document and add to index
+- `GET /health` - Health check with index status
+
+### Embedding Service (Port 8001)
+
+- `POST /embed` - Embed a single text
+- `POST /embed/batch` - Embed multiple texts
+- `GET /health` - Health check
+
+## Configuration
+
+Edit `src/config.yaml` to configure:
+
+- Embedding model and dimension
+- Index parameters (M, ef_construction, flush_threshold)
+- Storage capacity and file paths
 
 ## Development
 
 ```bash
 # Run tests
-pytest
-
-# Run tests with coverage
-pytest --cov=vector_db
-
-# Format code
-ruff format .
-
-# Lint code
-ruff check .
+pytest tests/
 
 # Type checking
 mypy src/
+
+# Linting
+ruff check src/
 ```
 
-## License
+## Scaling Strategy
 
-MIT
+### GPU Scaling (Embedding Service)
+- Scale embedding service instances based on GPU availability
+- Each instance can handle multiple concurrent requests
+- Use load balancer for distribution
+
+### CPU Scaling (Indexing Service)
+- Scale indexing service instances based on query load
+- Each instance maintains its own index copy or uses shared storage
+- Consider read replicas for high query throughput
 
