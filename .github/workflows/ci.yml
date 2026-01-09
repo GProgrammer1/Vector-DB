@@ -3,7 +3,9 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - fix/**
+      - feature/indexing
+      - feature/inference-api
   pull_request:
     branches:
       - main
@@ -94,3 +96,4 @@ jobs:
           file: ./coverage.xml
           fail_ci_if_error: false
 
+# CI workflow updated
