@@ -25,7 +25,7 @@ class HNSW:
 
         def __init__(self, node_id: int):
             self.id = node_id
-            self.neighbors: Dict[int, List[int]] = {}  # level -> list of neighbor node IDs
+            self.neighbors: Dict[int, List[int]] = {} 
 
     def __init__(
         self,
@@ -54,7 +54,7 @@ class HNSW:
         self.index_file = Path(index_file) if index_file else None
 
         # Graph structure: only node IDs and neighbors
-        self.node_store: Dict[int, HNSW.InternalNode] = {}  # node_id -> InternalNode
+        self.node_store: Dict[int, HNSW.InternalNode] = {} 
         self.entry_node_id: Optional[int] = None
         self.max_level = -1
         self.level_mult = 1 / math.log(M)
