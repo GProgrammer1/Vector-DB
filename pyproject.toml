@@ -27,6 +27,7 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.20.0",
     "pydantic>=2.0.0",
+    "httpx>=0.24.0",  # HTTP client for decoupled service communication
 
     # PyTorch CPU version (default, no CUDA dependencies)
     # Users with NVIDIA GPUs can install GPU version separately:
