@@ -16,7 +16,6 @@ class ProductQuantizationService:
     """
     Product quantization service for compressing embeddings.
     The service is used to compress embeddings into a smaller number of bits.
-    The service is used to decompress embeddings into their original dimension.
     k: k-means parameter (number of centroids)
     chunks: number of chunks to split the embedding into
     dim: dimension of the embedding

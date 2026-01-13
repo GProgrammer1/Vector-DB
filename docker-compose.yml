@@ -9,23 +9,19 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - ./src/config.yaml:/app/config.yaml:ro
+      - ./src/config.yaml:/app/config.yaml:ro,Z
     environment:
       - CONFIG_PATH=/app/config.yaml
+      - HF_HUB_OFFLINE=1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8001/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     # Allow scaling independently (can scale GPU instances separately)
     deploy:
       replicas: 1
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   indexing-service:
     build:
@@ -35,21 +31,20 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
-      - ./src/config.yaml:/app/config.yaml:ro
+      - ./data:/app/data:Z
+      - ./src/config.yaml:/app/config.yaml:ro,Z
     environment:
       - CONFIG_PATH=/app/config.yaml
       - USE_EMBEDDING_SERVICE=true
       - EMBEDDING_SERVICE_URL=http://embedding-service:8001
     depends_on:
-      embedding-service:
-        condition: service_healthy
+      - embedding-service
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     # Allow scaling independently
     deploy:
       replicas: 1
-

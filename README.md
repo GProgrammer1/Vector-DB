@@ -43,6 +43,22 @@ curl http://localhost:8001/health  # Embedding service
 curl http://localhost:8000/health  # Indexing service
 ```
 
+### Using Podman
+
+If you are using Podman, you can use `podman-compose`:
+
+```bash
+# Start both services
+podman-compose up -d --build
+
+# Check status
+podman ps
+```
+
+> [!NOTE]
+> The Dockerfiles have been optimized to install the CPU version of PyTorch by default to avoid large NVIDIA/CUDA dependency downloads on CPU-only machines.
+
+
 ### Manual Setup
 
 1. Install dependencies:

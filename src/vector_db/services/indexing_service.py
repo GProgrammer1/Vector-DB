@@ -4,7 +4,7 @@ import numpy as np
 import random
 import yaml
 from pathlib import Path
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Tuple, Dict, Any, Set
 
 from ..indexing.hnsw import HNSW
 from ..storage import MMapNodeStorage
@@ -99,7 +99,7 @@ class IndexingService:
         self._index_modified = True
 
     def search(
-        self, query: np.ndarray, k: int, ef: int = 50
+        self, query: np.ndarray, k: int, **kwargs
     ) -> List[Tuple[Node, float]]:
         """
         Search for k nearest neighbors.
@@ -107,12 +107,12 @@ class IndexingService:
         Args:
             query: Query embedding vector
             k: Number of results to return
-            ef: Search width parameter
+            **kwargs: Additional parameters (ef, filter_ids, pq_chunks, etc.)
             
         Returns:
             List of (Node, distance) tuples
         """
-        return self.index.search(query, k=k, ef=ef)
+        return self.index.search(query, k=k, **kwargs)
 
     def save_index(self) -> None:
         """Save index to disk if it has been modified."""

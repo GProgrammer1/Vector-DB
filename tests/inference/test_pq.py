@@ -67,7 +67,7 @@ class TestProductQuantizationService:
         chunks = pq._chunk_embeddings(embeddings)
         
         assert len(chunks) == 2
-        assert len(chunks[0]) == 2  # Two embeddings
+        assert len(chunks[0]) == 2 
         assert len(chunks[1]) == 2
         
         # Check first chunk of first embedding

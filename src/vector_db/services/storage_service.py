@@ -2,7 +2,7 @@
 
 import numpy as np
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Set, List
 
 from ..storage import MMapNodeStorage
 from ..types import Node
@@ -102,6 +102,30 @@ class StorageService:
             Next node ID
         """
         return self._storage.get_next_id()
+
+    def filter_by_metadata(self, filter_dict: Dict[str, Any]) -> Set[int]:
+        """
+        Filter nodes by metadata.
+        
+        Args:
+            filter_dict: Dictionary of key-value pairs to match
+            
+        Returns:
+            Set of node IDs that match the filter
+        """
+        matching_ids = set()
+        # Full scan - can be slow for very large datasets
+        for i in range(self._storage.get_next_id()):
+            node = self._storage.get(i)
+            if node:
+                match = True
+                for k, v in filter_dict.items():
+                    if node.metadata.get(k) != v:
+                        match = False
+                        break
+                if match:
+                    matching_ids.add(i)
+        return matching_ids
 
     def size(self) -> int:
         """

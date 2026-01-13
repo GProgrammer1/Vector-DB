@@ -22,11 +22,15 @@ async def lifespan(app: FastAPI):
     """Manage embedding service lifecycle: initialize on startup, cleanup on shutdown."""
     global embedding_service
     
+    print(f"Lifespan startup: checking config at {CONFIG_PATH}")
     # Initialize embedding service on startup
     if not Path(CONFIG_PATH).exists():
+        print(f"ERROR: Config file not found at {CONFIG_PATH}")
         raise FileNotFoundError(f"Config file not found: {CONFIG_PATH}")
+    
+    print("Loading embedding model (this may take a moment on CPU)...")
     embedding_service = EmbeddingService(config_path=CONFIG_PATH)
-    print(f"Embedding service initialized (dim={embedding_service.dim})")
+    print(f"Embedding service initialized successfully (dim={embedding_service.dim})")
     
     yield
     
