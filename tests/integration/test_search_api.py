@@ -58,11 +58,13 @@ def test_client():
         original_embedding = app_module.embedding_client
         original_storage = app_module.storage_service
         original_indexing = app_module.indexing_service
+        original_use_service = app_module.USE_EMBEDDING_SERVICE
         
         # Override globals
         app_module.embedding_client = embedding_client
         app_module.storage_service = storage_service
         app_module.indexing_service = indexing_service
+        app_module.USE_EMBEDDING_SERVICE = False # Force local service
         
         # Create test client
         with TestClient(app) as client:
@@ -72,6 +74,7 @@ def test_client():
         app_module.embedding_client = original_embedding
         app_module.storage_service = original_storage
         app_module.indexing_service = original_indexing
+        app_module.USE_EMBEDDING_SERVICE = original_use_service
 
 
 
