@@ -74,6 +74,18 @@ def test_client():
         app_module.indexing_service = original_indexing
 
 
+
+def check_status(response, expected_code=200):
+    """Helper to assert status code and print error detail on failure."""
+    if response.status_code != expected_code:
+        try:
+            detail = response.json()
+        except Exception:
+            detail = response.text
+        print(f"\nRequest failed: {detail}")
+    assert response.status_code == expected_code
+
+
 def test_search_basic(test_client):
     """Test standard search without filters."""
     # 1. Insert data
@@ -83,7 +95,7 @@ def test_search_basic(test_client):
     
     # 2. Search
     response = test_client.post("/search", json={"query": "fruit", "top_k": 2})
-    assert response.status_code == 200
+    check_status(response)
     data = response.json()
     assert len(data["results"]) <= 2
     # Just check that we got results, embeddings might vary
@@ -104,7 +116,7 @@ def test_search_with_filter(test_client):
         "metadata_filter": {"color": "red"}
     })
     
-    assert response.status_code == 200
+    check_status(response)
     results = response.json()["results"]
     
     # The key point: 'Green Apple' should NOT be in results
@@ -125,7 +137,7 @@ def test_search_no_match_filter(test_client):
         "metadata_filter": {"key": "nonexistent"}
     })
     
-    assert response.status_code == 200
+    check_status(response)
     assert len(response.json()["results"]) == 0
 
 
@@ -141,5 +153,5 @@ def test_search_params_handling(test_client):
         "params": {"custom_arg": "value"}
     })
     
-    assert response.status_code == 200
+    check_status(response)
     assert len(response.json()["results"]) > 0
