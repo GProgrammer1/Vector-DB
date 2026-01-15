@@ -47,7 +47,19 @@ def test_client():
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
         
-        from unittest.mock import MagicMock
+        from unittest.mock import MagicMock, patch
+        import os
+        
+        # Store original values
+        original_embedding = app_module.embedding_client
+        original_storage = app_module.storage_service
+        original_indexing = app_module.indexing_service
+        original_use_service = app_module.USE_EMBEDDING_SERVICE
+        original_config_path = os.environ.get("CONFIG_PATH")
+        
+        # Set config path and USE_EMBEDDING_SERVICE before creating TestClient
+        os.environ["CONFIG_PATH"] = str(config_path)
+        os.environ["USE_EMBEDDING_SERVICE"] = "false"
         
         # Initialize services
         # Mock EmbeddingService to avoid dependency issues and ensure correct shape
@@ -71,27 +83,39 @@ def test_client():
             index_file=str(index_file)
         )
         
-        # Store original values
-        original_embedding = app_module.embedding_client
-        original_storage = app_module.storage_service
-        original_indexing = app_module.indexing_service
-        original_use_service = app_module.USE_EMBEDDING_SERVICE
-        
-        # Override globals
+        # Override globals BEFORE creating TestClient to prevent lifespan from initializing real services
         app_module.embedding_client = embedding_client
         app_module.storage_service = storage_service
         app_module.indexing_service = indexing_service
         app_module.USE_EMBEDDING_SERVICE = False # Force local service
         
-        # Create test client
-        with TestClient(app) as client:
-            yield client
+        # Patch EmbeddingService class at the source so lifespan uses our mock if it tries to create one
+        # The lifespan imports it dynamically: from ..services.embedding_service import EmbeddingService
+        with patch('vector_db.services.embedding_service.EmbeddingService') as mock_embedding_class:
+            # Make the class constructor return our mock instance
+            mock_embedding_class.return_value = embedding_client
+            # Also patch it in the app module namespace if it exists
+            if hasattr(app_module, 'LocalEmbeddingService'):
+                with patch.object(app_module, 'LocalEmbeddingService', return_value=embedding_client):
+                    # Create test client - lifespan will see services are already set and skip initialization
+                    with TestClient(app) as client:
+                        yield client
+            else:
+                # Create test client - lifespan will see services are already set and skip initialization
+                with TestClient(app) as client:
+                    yield client
         
         # Restore original values
         app_module.embedding_client = original_embedding
         app_module.storage_service = original_storage
         app_module.indexing_service = original_indexing
         app_module.USE_EMBEDDING_SERVICE = original_use_service
+        if original_config_path:
+            os.environ["CONFIG_PATH"] = original_config_path
+        elif "CONFIG_PATH" in os.environ:
+            del os.environ["CONFIG_PATH"]
+        if "USE_EMBEDDING_SERVICE" in os.environ:
+            del os.environ["USE_EMBEDDING_SERVICE"]
 
 
 
