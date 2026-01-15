@@ -13,7 +13,7 @@ from ..services.embedding_client import SyncEmbeddingClient
 from ..types import Node
 
 # Load config path
-CONFIG_PATH = Path(__file__).parent.parent.parent / "config.yaml"
+CONFIG_PATH = os.getenv("CONFIG_PATH", str(Path(__file__).parent.parent.parent / "config.yaml"))
 
 # Global service instances (initialized on startup)
 # embedding_client can be either SyncEmbeddingClient (HTTP) or EmbeddingService (local)
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     capacity = vector_db_config.get("capacity", 1000000)
     dim = embedding_config.get("dimension", 384)
     
-    print("Initializing services...")
+    print(f"Initializing services with config at {CONFIG_PATH}...")
     
     if USE_EMBEDDING_SERVICE:
         embedding_client = SyncEmbeddingClient(base_url=EMBEDDING_SERVICE_URL)
@@ -120,15 +120,6 @@ def health():
 def embed_document(insert_request: InsertRequest):
     """
     Embed a document and store it in the vector database.
-    
-    Uses decoupled embedding service (HTTP API) for GPU-intensive embedding generation,
-    while CPU-bound indexing runs independently. This allows independent scaling.
-    
-    On first request (if index doesn't exist), creates the index.
-    On subsequent requests, loads existing index and adds to it.
-    Index is saved to disk:
-    - When memory threshold is reached (configurable)
-    - On server shutdown
     """
     global embedding_client, storage_service, indexing_service
     
@@ -154,27 +145,91 @@ def embed_document(insert_request: InsertRequest):
         # Save to storage
         storage_service.save(node)
         
-        # Add to index (will auto-flush if threshold reached)
+        # Add to index
         indexing_service.insert_node(node)
-        
-        # Note: Index is saved automatically if threshold reached,
-        # or on server shutdown. No immediate flush to avoid latency.
         
         return InsertResponse(
             status_code=200,
             message=f"Document embedded and stored successfully at index {node_id}",
             error=None
         )
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid request: {str(e)}"
-        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Error processing request: {str(e)}"
+        )
+
+
+from .models import InsertRequest, InsertResponse, QueryRequest, QueryResponse
+
+@app.post("/search", response_model=QueryResponse)
+def search_index(query_request: QueryRequest):
+    """
+    Search for nearest neighbors in the index with optional metadata filtering.
+    """
+    global embedding_client, storage_service, indexing_service
+    
+    if embedding_client is None or storage_service is None or indexing_service is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Services not initialized"
+        )
+    
+    try:
+        # 1. Generate embedding for query
+        query_embedding = embedding_client.embed_text(query_request.query)
+        
+        # 2. Handle metadata filtering
+        filter_ids = None
+        if query_request.metadata_filter:
+            filter_ids = storage_service.filter_by_metadata(query_request.metadata_filter)
+            if not filter_ids:
+                # If filter returned nothing, no need to search index
+                return QueryResponse(
+                    status_code=200,
+                    results=[],
+                    error=None
+                )
+        
+        # 3. Search index
+        # Collect search arguments
+        search_kwargs = {
+            "ef": query_request.ef,
+            "filter_ids": filter_ids
+        }
+        
+        # Add optional/generic parameters
+        if query_request.pq_chunks:
+            search_kwargs["pq_chunks"] = query_request.pq_chunks
+        if query_request.params:
+            search_kwargs.update(query_request.params)
+            
+        results = indexing_service.search(
+            query=query_embedding,
+            k=query_request.top_k,
+            **search_kwargs
+        )
+        
+        # 4. Format results
+        formatted_results = []
+        for node, dist in results:
+            formatted_results.append({
+                "id": node.id,
+                "content": node.content,
+                "metadata": node.metadata,
+                "distance": float(dist)
+            })
+            
+        return QueryResponse(
+            status_code=200,
+            results=formatted_results,
+            error=None
+        )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing search: {str(e)}"
         )
 
     

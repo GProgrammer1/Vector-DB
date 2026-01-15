@@ -4,16 +4,17 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-RUN pip install --no-cache-dir -e ".[dev]" || \
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -e ".[dev]" || \
     pip install --no-cache-dir \
     numpy>=1.24.0 \
     scipy>=1.10.0 \
-    torch>=2.0.0 \
     sentence-transformers>=2.2.0 \
     transformers>=4.30.0 \
     tokenizers>=0.13.0 \
@@ -24,6 +25,8 @@ RUN pip install --no-cache-dir -e ".[dev]" || \
 
 COPY docker/embedding-service/app.py ./embedding_app.py
 
+# Pre-download the embedding model to avoid startup delays and network issues
+RUN python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 
 EXPOSE 8001
 

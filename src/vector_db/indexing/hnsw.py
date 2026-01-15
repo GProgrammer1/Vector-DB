@@ -77,17 +77,24 @@ class HNSW:
             raise ValueError(f"Node {node_id} not found in storage (may have been deleted)")
 
     def _search_layer(
-        self, query_embedding: np.ndarray, entry_id: int, ef: int, level: int
+        self, query_embedding: np.ndarray, entry_id: int, ef: int, level: int,
+        filter_ids: Optional[Set[int]] = None
     ) -> List[Tuple[float, int]]:
         """
         The core Best-First Search algorithm using a Priority Queue.
         Returns the 'ef' closest nodes found in the given level.
+        If filter_ids is provided, only nodes in that set are returned as results,
+        but non-matching nodes are still used for navigation.
         """
         # Min-heap of candidates to explore (distance, id)
         dist = euclidean_vector_distance(query_embedding, self._get_embedding(entry_id))
         candidates = [(dist, entry_id)]
+        
         # Max-heap of best nodes found so far (-distance, id)
-        found_nodes = [(-candidates[0][0], entry_id)]
+        # We only add to found_nodes if it matches the filter (if provided)
+        found_nodes = []
+        if filter_ids is None or entry_id in filter_ids:
+            found_nodes.append((-dist, entry_id))
 
         visited = {entry_id}
         heapq.heapify(candidates)
@@ -95,8 +102,11 @@ class HNSW:
         while candidates:
             dist, curr_id = heapq.heappop(candidates)
 
-            # If this candidate is further than the worst in our result list, stop
-            if dist > -found_nodes[0][0]:
+            # Optimization: If this candidate is further than the worst in our result list, 
+            # and we already have enough results, we COULD stop. 
+            # However, with filtering, found_nodes might be empty or small.
+            # We use a secondary distance check or just ef limit for candidates.
+            if len(found_nodes) >= ef and dist > -found_nodes[0][0]:
                 break
 
             curr_node = self.node_store[curr_id]
@@ -108,16 +118,17 @@ class HNSW:
                             query_embedding, self._get_embedding(neighbor_id)
                         )
                     except (KeyError, ValueError):
-                        # Node was deleted from storage, skip it
                         continue
 
-                    # If neighbor is closer than the worst found or we haven't reached ef capacity
-                    if n_dist < -found_nodes[0][0] or len(found_nodes) < ef:
-                        heapq.heappush(candidates, (n_dist, neighbor_id))
-                        heapq.heappush(found_nodes, (-n_dist, neighbor_id))
-
-                        if len(found_nodes) > ef:
-                            heapq.heappop(found_nodes)
+                    # Always add to candidates for traversal
+                    heapq.heappush(candidates, (n_dist, neighbor_id))
+                    
+                    # Only add to results if it matches filter
+                    if filter_ids is None or neighbor_id in filter_ids:
+                        if len(found_nodes) < ef or n_dist < -found_nodes[0][0]:
+                            heapq.heappush(found_nodes, (-n_dist, neighbor_id))
+                            if len(found_nodes) > ef:
+                                heapq.heappop(found_nodes)
 
         # Return sorted list of (distance, id)
         return [(-d, idx) for d, idx in sorted(found_nodes, reverse=True)]
@@ -317,13 +328,17 @@ class HNSW:
             curr_id = best_neighbor_id
 
     def search(
-        self, query: np.ndarray, k: int, ef: int = 50
+        self, query: np.ndarray, k: int, **kwargs
     ) -> List[Tuple[Node, float]]:
         """
         Search for the k nearest neighbors.
-        
-        Returns list of (Node, distance).
+        Accepts:
+            ef: Search width (default 50)
+            filter_ids: Set of allowed node IDs
+            **kwargs: Ignored additional parameters
         """
+        ef = kwargs.get("ef", 50)
+        filter_ids = kwargs.get("filter_ids")
         if self.entry_node_id is None:
             return []
 
@@ -336,7 +351,6 @@ class HNSW:
                           if self.storage.get(nid) is not None]
             if not valid_nodes:
                 return []
-            # Use first valid node as entry
             self.entry_node_id = valid_nodes[0]
 
         curr_id = self.entry_node_id
@@ -344,9 +358,8 @@ class HNSW:
             curr_id = self._greedy_search_level(query, curr_id, level)
 
         try:
-            candidates = self._search_layer(query, curr_id, ef, 0)
+            candidates = self._search_layer(query, curr_id, ef, 0, filter_ids=filter_ids)
         except (KeyError, ValueError):
-            # Entry point invalid, return empty
             return []
 
         # Sort by distance (smallest first)

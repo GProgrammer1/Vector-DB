@@ -6,6 +6,7 @@ on:
       - fix/**
       - feature/indexing
       - feature/inference-api
+      - feature/search-api-metadata-filtering
   pull_request:
     branches:
       - main
