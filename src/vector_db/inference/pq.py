@@ -14,8 +14,6 @@ def _kmeans_chunk_worker(args: Tuple[List[np.ndarray], int]) -> np.ndarray:
 class ProductQuantizationService:
 
     """
-    Product quantization service for compressing embeddings.
-    The service is used to compress embeddings into a smaller number of bits.
     k: k-means parameter (number of centroids)
     chunks: number of chunks to split the embedding into
     dim: dimension of the embedding
@@ -37,7 +35,6 @@ class ProductQuantizationService:
         self.centroids: Optional[List[np.ndarray]] = None
 
     def _validate_embeddings(self, embeddings: np.ndarray) -> None:
-        """Validate input embeddings."""
         if not isinstance(embeddings, np.ndarray):
             raise TypeError("Embeddings must be a numpy array")
         if embeddings.ndim != 2:
@@ -46,7 +43,6 @@ class ProductQuantizationService:
             raise ValueError(f"Embedding dimension must be {self.dim}, got {embeddings.shape[1]}")
 
     def _chunk_embeddings(self, embeddings: np.ndarray) -> List[List[np.ndarray]]:
-        """Split embeddings into chunks and collect chunks by position."""
         N, D = embeddings.shape
 
         # Ensure embedding dimension matches expected total size
@@ -67,20 +63,17 @@ class ProductQuantizationService:
         """
         args = [(chunk, self.k) for chunk in chunks]
 
-        # Share work on multiple processes
-        # Use module-level function for pickling compatibility
+        
         with ProcessPoolExecutor() as executor:
             results = executor.map(_kmeans_chunk_worker, args)
 
         return list(results)
 
     def _find_nearest_centroid(self, chunk: np.ndarray, centroids: np.ndarray) -> int:
-        """Find the index of the nearest centroid for a given chunk."""
         distances = np.linalg.norm(centroids - chunk, axis=1)
         return int(np.argmin(distances))
 
     def _compress_embedding(self, embedding: np.ndarray, centroids: List[np.ndarray]) -> np.ndarray:
-        """Compress a single embedding by finding nearest centroids for each chunk."""
         compressed_indices = []
         for i in range(self.chunks):
             chunk = embedding[i * self.subdim:(i + 1) * self.subdim]
@@ -89,13 +82,11 @@ class ProductQuantizationService:
         return np.array(compressed_indices, dtype=np.int64)
 
     def compress(self, embeddings: np.ndarray) -> np.ndarray:
-        """Compress embeddings using product quantization."""
         self._validate_embeddings(embeddings)
         
         # Split embeddings into chunks
         chunks = self._chunk_embeddings(embeddings)
         
-        # Compute centroids for each chunk
         centroids = self._compute_centroids(chunks)
         self.centroids = centroids
         

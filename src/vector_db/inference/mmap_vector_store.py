@@ -16,8 +16,6 @@ class MemoryMappingService:
     Uses two-layer memmap storage:
     - Layer 1: Embeddings + IDs (memmap)
     - Layer 2: IDs + Content + Metadata (memmap)
-    
-    Integrates with HNSW index that persists to disk.
     """
 
     def __init__(
@@ -30,7 +28,7 @@ class MemoryMappingService:
     ):
         """
         Args:
-            file_path: Base path for storage files (will create embedding and metadata files)
+            file_path
             dim: Dimension of embeddings
             capacity: Maximum number of embeddings to store
             config_path: Path to config.yaml for index parameters
@@ -46,16 +44,23 @@ class MemoryMappingService:
         self.capacity = capacity
         self.size = 0
 
-        # Load index config from file
         if config_path is None:
             raise ValueError("config_path is required")
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
-        index_config = config.get("index", {})
-        M = index_config.get("M", 16)
-        ef_construction = index_config.get("ef_construction", 200)
+        
+        if "index" not in config:
+            raise ValueError("Config file must contain 'index' section")
+        index_config = config["index"]
+        
+        if "M" not in index_config:
+            raise ValueError("Config 'index.M' is required")
+        M = index_config["M"]
+        
+        if "ef_construction" not in index_config:
+            raise ValueError("Config 'index.ef_construction' is required")
+        ef_construction = index_config["ef_construction"]
 
-        # Initialize two-layer memmap storage
         embedding_file = self.file_path.with_suffix(".embeddings.npy")
         metadata_file = self.file_path.with_suffix(".metadata.npy")
         
@@ -66,7 +71,6 @@ class MemoryMappingService:
             capacity=capacity,
         )
 
-        # Initialize HNSW index with persistence
         rng = random.Random(42)
         index_path = Path(index_file) if index_file else self.file_path.with_suffix(".index.pkl")
         self.index = HNSW(
@@ -77,7 +81,6 @@ class MemoryMappingService:
             index_file=index_path,
         )
 
-        # Update size from storage
         self.size = self.storage.size()
 
     def write(
@@ -86,17 +89,7 @@ class MemoryMappingService:
         content: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> int:
-        """
-        Write an embedding to storage and add to index.
-
-        Args:
-            embedding: Embedding vector (1D numpy array)
-            content: Original text content (optional)
-            metadata: Additional metadata dictionary (optional)
-
-        Returns:
-            Node ID (index) of the stored embedding
-        """
+       
         if not isinstance(embedding, np.ndarray):
             raise TypeError("Embedding must be a numpy array")
         if embedding.dtype != np.float32:
@@ -106,10 +99,8 @@ class MemoryMappingService:
         if embedding.size != self.dim:
             raise ValueError(f"Embedding must be of dimension {self.dim}")
 
-        # Get next available node ID
         node_id = self.storage.get_next_id()
 
-        # Create node
         node = Node(
             id=node_id,
             embedding=embedding,
@@ -117,7 +108,6 @@ class MemoryMappingService:
             metadata=metadata or {},
         )
 
-        # Save to storage and add to index
         self.storage.save(node)
         self.index.insert_node(node)
 
@@ -125,15 +115,7 @@ class MemoryMappingService:
         return node_id
 
     def read(self, node_id: int) -> Node:
-        """
-        Read a node by ID.
-
-        Args:
-            node_id: Node ID to retrieve
-
-        Returns:
-            Node object with embedding, content, and metadata
-        """
+      
         if not isinstance(node_id, int):
             raise TypeError("Node ID must be an integer")
         
@@ -143,17 +125,11 @@ class MemoryMappingService:
         return node
 
     def get_embedding(self, node_id: int) -> np.ndarray:
-        """Get embedding for a node by ID."""
         return self.storage.get_embedding(node_id)
 
     def delete(self, node_id: int) -> None:
-        """
-        Delete a node from storage and index.
-
-        Args:
-            node_id: Node ID to delete
-        """
-        # Delete from index (removes from graph structure)
+     
+        # Delete from index 
         self.index.delete_node(node_id)
         
         # Delete from storage
@@ -163,15 +139,5 @@ class MemoryMappingService:
         self.size = self.storage.size()
 
     def search(self, query: np.ndarray, k: int, ef: int = 50) -> List[Tuple[Node, float]]:
-        """
-        Search for k nearest neighbors.
-
-        Args:
-            query: Query embedding vector
-            k: Number of results to return
-            ef: Search width parameter
-
-        Returns:
-            List of (Node, distance) tuples
-        """
+        
         return self.index.search(query, k=k, ef=ef)

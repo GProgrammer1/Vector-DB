@@ -7,23 +7,23 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Install base dependencies first (without PyTorch)
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -e ".[dev]" || \
-    pip install --no-cache-dir \
-    numpy>=1.24.0 \
-    scipy>=1.10.0 \
-    sentence-transformers>=2.2.0 \
-    transformers>=4.30.0 \
-    tokenizers>=0.13.0 \
-    fastapi>=0.100.0 \
-    uvicorn[standard]>=0.20.0 \
-    pydantic>=2.0.0 \
-    PyYAML>=6.0.0
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -e .
+
+# Install PyTorch CPU version (default for Docker)
+# For GPU support, override this with build args or use a different base image
+ARG PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir torch torchvision --index-url ${PYTORCH_INDEX_URL}
+
+# Install CPU extras (sentence-transformers, transformers, tokenizers)
+RUN pip install --no-cache-dir -e ".[cpu]"
 
 COPY docker/embedding-service/app.py ./embedding_app.py
+COPY src/config.yaml ./config.yaml
 
 # Pre-download the embedding model to avoid startup delays and network issues
 RUN python3 -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"

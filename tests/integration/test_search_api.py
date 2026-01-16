@@ -3,18 +3,24 @@ import pytest
 import tempfile
 import yaml
 from pathlib import Path
-from fastapi.testclient import TestClient
 
-from vector_db.api.app import app
+try:
+    from fastapi.testclient import TestClient
+    from vector_db.api.app import app
+    import vector_db.api.app as app_module
+    _FASTAPI_AVAILABLE = True
+except ImportError:
+    _FASTAPI_AVAILABLE = False
+
+pytestmark = pytest.mark.skipif(not _FASTAPI_AVAILABLE, reason="fastapi not installed")
+
 from vector_db.services.embedding_service import EmbeddingService
 from vector_db.services.storage_service import StorageService
 from vector_db.services.indexing_service import IndexingService
-import vector_db.api.app as app_module
 
 
 @pytest.fixture(scope="function")
 def test_client():
-    """Setup test client with temporary files and initialized services."""
     with tempfile.TemporaryDirectory() as tmpdir:
         config_path = Path(tmpdir) / "config.yaml"
         db_path = Path(tmpdir) / "test_db"
@@ -40,8 +46,29 @@ def test_client():
         with open(config_path, "w") as f:
             yaml.dump(config_data, f)
         
-        # Initialize services and set them as globals
-        embedding_client = EmbeddingService(config_path=str(config_path))
+        from unittest.mock import MagicMock, patch
+        import os
+        
+        # Store original values
+        original_embedding = app_module.embedding_client
+        original_storage = app_module.storage_service
+        original_indexing = app_module.indexing_service
+        original_config_path = os.environ.get("CONFIG_PATH")
+        original_embedding_url = os.environ.get("EMBEDDING_SERVICE_URL")
+        
+        os.environ["CONFIG_PATH"] = str(config_path)
+        os.environ["EMBEDDING_SERVICE_URL"] = "http://localhost:8001"
+        
+        # Initialize services
+        # Mock EmbeddingService to avoid dependency issues and ensure correct shape
+        embedding_client = MagicMock()
+        # Configure the mock to return valid numpy arrays
+        def mock_embed(text):
+            return np.random.rand(384).astype(np.float32)
+        
+        embedding_client.embed_text.side_effect = mock_embed
+        embedding_client.dim = 384
+        
         storage_service = StorageService(
             file_path=str(db_path),
             dim=384,
@@ -54,32 +81,33 @@ def test_client():
             index_file=str(index_file)
         )
         
-        # Store original values
-        original_embedding = app_module.embedding_client
-        original_storage = app_module.storage_service
-        original_indexing = app_module.indexing_service
-        original_use_service = app_module.USE_EMBEDDING_SERVICE
-        
-        # Override globals
         app_module.embedding_client = embedding_client
         app_module.storage_service = storage_service
         app_module.indexing_service = indexing_service
-        app_module.USE_EMBEDDING_SERVICE = False # Force local service
         
-        # Create test client
-        with TestClient(app) as client:
-            yield client
+        with patch('vector_db.services.embedding_client.EmbeddingClient') as mock_embedding_class:
+            # Make the class constructor return our mock instance
+            mock_embedding_class.return_value = embedding_client
+            # Create test client - lifespan will see services are already set and skip initialization
+            with TestClient(app) as client:
+                yield client
         
         # Restore original values
         app_module.embedding_client = original_embedding
         app_module.storage_service = original_storage
         app_module.indexing_service = original_indexing
-        app_module.USE_EMBEDDING_SERVICE = original_use_service
+        if original_config_path:
+            os.environ["CONFIG_PATH"] = original_config_path
+        elif "CONFIG_PATH" in os.environ:
+            del os.environ["CONFIG_PATH"]
+        if original_embedding_url:
+            os.environ["EMBEDDING_SERVICE_URL"] = original_embedding_url
+        elif "EMBEDDING_SERVICE_URL" in os.environ:
+            del os.environ["EMBEDDING_SERVICE_URL"]
 
 
 
 def check_status(response, expected_code=200):
-    """Helper to assert status code and print error detail on failure."""
     if response.status_code != expected_code:
         try:
             detail = response.json()
@@ -90,7 +118,6 @@ def check_status(response, expected_code=200):
 
 
 def test_search_basic(test_client):
-    """Test standard search without filters."""
     # 1. Insert data
     test_client.post("/embed", json={"content": "Apple fruit", "metadata": {"type": "fruit"}})
     test_client.post("/embed", json={"content": "Banana fruit", "metadata": {"type": "fruit"}})
@@ -106,7 +133,6 @@ def test_search_basic(test_client):
 
 
 def test_search_with_filter(test_client):
-    """Test search with metadata filtering."""
     # 1. Insert data
     test_client.post("/embed", json={"content": "Red Apple", "metadata": {"color": "red", "type": "fruit"}})
     test_client.post("/embed", json={"content": "Green Apple", "metadata": {"color": "green", "type": "fruit"}})
@@ -122,7 +148,7 @@ def test_search_with_filter(test_client):
     check_status(response)
     results = response.json()["results"]
     
-    # The key point: 'Green Apple' should NOT be in results
+    # The key point: 'Green Apple' should not be in results
     contents = [r["content"] for r in results]
     assert "Green Apple" not in contents
     
@@ -132,11 +158,11 @@ def test_search_with_filter(test_client):
 
 
 def test_search_no_match_filter(test_client):
-    """Test search where no items match the filter."""
     test_client.post("/embed", json={"content": "Test", "metadata": {"key": "val"}})
     
     response = test_client.post("/search", json={
         "query": "Test",
+        "top_k": 5,
         "metadata_filter": {"key": "nonexistent"}
     })
     
@@ -145,12 +171,11 @@ def test_search_no_match_filter(test_client):
 
 
 def test_search_params_handling(test_client):
-    """Test that extra parameters are accepted and passed through."""
     test_client.post("/embed", json={"content": "Param test"})
     
-    # Pass ef and custom params
     response = test_client.post("/search", json={
         "query": "Param test",
+        "top_k": 5,
         "ef": 100,
         "pq_chunks": 8,
         "params": {"custom_arg": "value"}

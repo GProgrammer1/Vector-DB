@@ -11,12 +11,6 @@ from ..storage import NodeStorage, InMemoryNodeStorage
 
 
 class IvfIndex:
-    """
-    Inverted File Index (IVF) for approximate nearest neighbor search.
-    
-    The index only stores centroids and inverted lists (node IDs).
-    Embeddings and metadata are stored separately in NodeStorage.
-    """
 
     def __init__(
         self,
@@ -25,8 +19,6 @@ class IvfIndex:
         index_file: Optional[Union[str, Path]] = None,
     ):
         """
-        Initialize IVF index.
-
         Args:
             k: Number of clusters (centroids) for k-means
             storage: NodeStorage backend for embeddings and metadata
@@ -38,31 +30,19 @@ class IvfIndex:
         self.storage = storage or InMemoryNodeStorage()
         self.index_file = Path(index_file) if index_file else None
 
-        # Index structure: only centroids and inverted lists (node IDs)
         self.centroids: Optional[np.ndarray] = None
-        self.inverted_lists: List[List[int]] = []  # cluster_id -> list of node IDs
+        self.inverted_lists: List[List[int]] = []
 
-        # Load index from file if it exists
         if self.index_file and self.index_file.exists():
             self.load_index()
 
     def build_index(self, nodes: List[Node]) -> None:
-        """
-        Build the IVF index by clustering embeddings and creating inverted lists.
-        
-        Args:
-            nodes: List of nodes to index. These nodes are added to storage and used for clustering.
-                  Note: This method requires all embeddings to be in memory for k-means clustering.
-                  For large datasets, consider building the index incrementally using add().
-        """
         if not nodes:
             raise ValueError("Cannot build index with empty node list")
 
-        # Add nodes to storage
         for node in nodes:
             self.storage.save(node)
 
-        # Extract embeddings from provided nodes (already in memory)
         embeddings = np.array([node.embedding for node in nodes])
         ids = [node.id for node in nodes]
 
@@ -71,25 +51,17 @@ class IvfIndex:
         if embeddings.shape[0] < self.k:
             raise ValueError(f"Need at least {self.k} vectors for {self.k} clusters")
 
-        # Perform k-means clustering
         self.centroids, labels = kmeans2(embeddings, self.k, iter=100, minit='points')
 
-        # Build inverted lists: cluster_id -> list of node IDs
         self.inverted_lists = [[] for _ in range(self.k)]
         for i, label in enumerate(labels):
             node_id = ids[i]
             self.inverted_lists[label].append(node_id)
 
-        # Save index after building
         if self.index_file:
             self.save_index()
 
     def add(self, node: Node) -> None:
-        """
-        Add a node to the index.
-        
-        The node is first saved to storage, then added to the appropriate cluster.
-        """
         if self.centroids is None:
             raise ValueError("Index must be built before adding nodes")
 
@@ -102,36 +74,25 @@ class IvfIndex:
                 f"centroid dimension {self.centroids.shape[1]}"
             )
 
-        # Save to storage first
         self.storage.save(node)
 
-        # Find nearest centroid
         distances = np.linalg.norm(self.centroids - embedding, axis=1)
         nearest_cluster = int(np.argmin(distances))
 
-        # Add to inverted list
         self.inverted_lists[nearest_cluster].append(node.id)
 
-        # Save index after addition
         if self.index_file:
             self.save_index()
 
     def delete(self, node_id: int) -> None:
-        """
-        Delete a node from the index.
-        
-        Removes the node from inverted lists and storage.
-        """
-        # Remove from all inverted lists
+    
         for cluster_list in self.inverted_lists:
             if node_id in cluster_list:
                 cluster_list.remove(node_id)
 
-        # Delete from storage if it supports deletion
         if hasattr(self.storage, "delete"):
             self.storage.delete(node_id)
 
-        # Save index after deletion
         if self.index_file:
             self.save_index()
 
@@ -142,7 +103,6 @@ class IvfIndex:
         top_k: int,
     ) -> List[Tuple[Node, float]]:
         """
-        Search for nearest neighbors using IVF.
 
         Args:
             query: Query vector of shape (dim,)
@@ -215,7 +175,6 @@ class IvfIndex:
         }
 
     def save_index(self) -> None:
-        """Save index state (centroids and inverted lists) to file."""
         if self.index_file is None:
             return
 
@@ -229,7 +188,6 @@ class IvfIndex:
             pickle.dump(index_data, f)
 
     def load_index(self) -> None:
-        """Load index state (centroids and inverted lists) from file."""
         if self.index_file is None or not self.index_file.exists():
             return
 

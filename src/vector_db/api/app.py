@@ -3,75 +3,70 @@ import yaml
 import os
 from pathlib import Path
 from contextlib import asynccontextmanager
-from typing import Optional, Union
+from typing import Optional
 from fastapi import FastAPI, HTTPException
 
 from .models import InsertRequest, InsertResponse
 from ..services.storage_service import StorageService
 from ..services.indexing_service import IndexingService
-from ..services.embedding_client import SyncEmbeddingClient
+from ..services.embedding_client import EmbeddingClient
 from ..types import Node
 
-# Load config path
-CONFIG_PATH = os.getenv("CONFIG_PATH", str(Path(__file__).parent.parent.parent / "config.yaml"))
+def get_config_path() -> str:
+    config_path = os.getenv("CONFIG_PATH")
+    if not config_path:
+        raise ValueError(
+            "CONFIG_PATH environment variable is required. "
+            "Set it to the path of your config.yaml file."
+        )
+    return str(Path(config_path).resolve())
 
-# Global service instances (initialized on startup)
-# embedding_client can be either SyncEmbeddingClient (HTTP) or EmbeddingService (local)
-from typing import Union
-try:
-    from ..services.embedding_service import EmbeddingService as LocalEmbeddingService
-    EmbeddingClientType = Union[SyncEmbeddingClient, LocalEmbeddingService]
-except ImportError:
-    EmbeddingClientType = SyncEmbeddingClient  # type: ignore[misc,assignment]
+CONFIG_PATH: Optional[str] = os.getenv("CONFIG_PATH")
+if CONFIG_PATH:
+    CONFIG_PATH = str(Path(CONFIG_PATH).resolve())
 
-embedding_client: Optional[EmbeddingClientType] = None
+embedding_client: Optional[EmbeddingClient] = None
 storage_service: Optional[StorageService] = None
 indexing_service: Optional[IndexingService] = None
 
-# Configuration: use embedding service API or local embedding service
-USE_EMBEDDING_SERVICE = os.getenv("USE_EMBEDDING_SERVICE", "true").lower() == "true"
-EMBEDDING_SERVICE_URL = os.getenv("EMBEDDING_SERVICE_URL", "http://embedding-service:8001")
 
+
+EMBEDDING_SERVICE_URL = os.getenv("EMBEDDING_SERVICE_URL")
 
 def load_config() -> dict:
-    """Load configuration from YAML file."""
-    with open(CONFIG_PATH, "r") as f:
+    config_path = CONFIG_PATH or get_config_path()
+    with open(config_path, "r") as f:
         return yaml.safe_load(f)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage service lifecycle: initialize on startup, cleanup on shutdown."""
     global embedding_client, storage_service, indexing_service
+
+    if embedding_client is not None and storage_service is not None and indexing_service is not None:
+        yield
+        return
     
     config = load_config()
-    vector_db_config = config.get("vector_db", {})
-    embedding_config = config.get("embedding", {})
     
-    file_path = vector_db_config.get("file_path", "../vector_db")
-    capacity = vector_db_config.get("capacity", 1000000)
-    dim = embedding_config.get("dimension", 384)
+  
+    vector_db_config = config["vector_db"]
     
-    print(f"Initializing services with config at {CONFIG_PATH}...")
+    embedding_config = config["embedding"]
+
+    file_path = vector_db_config["file_path"]
+ 
+    capacity = vector_db_config["capacity"]
+
+    dim = embedding_config["dimension"]
+        
     
-    if USE_EMBEDDING_SERVICE:
-        embedding_client = SyncEmbeddingClient(base_url=EMBEDDING_SERVICE_URL)
-        if embedding_client.health_check():
-            print(f"Embedding service client initialized (URL: {EMBEDDING_SERVICE_URL})")
-        else:
-            print(f"Warning: Embedding service at {EMBEDDING_SERVICE_URL} is not healthy")
+    embedding_client = EmbeddingClient(base_url=EMBEDDING_SERVICE_URL, use_async=False)
+    if embedding_client.health_check():
+        print(f"Embedding service client initialized (URL: {EMBEDDING_SERVICE_URL})")
     else:
-        # Fallback to local embedding service (for development/testing)
-        try:
-            from ..services.embedding_service import EmbeddingService as LocalEmbeddingService
-            embedding_client = LocalEmbeddingService(config_path=str(CONFIG_PATH))
-            print(f"Local embedding service initialized (dim={embedding_client.dim})")
-        except ImportError:
-            raise RuntimeError(
-                "Cannot use local embedding service: sentence-transformers not installed. "
-                "Set USE_EMBEDDING_SERVICE=true to use HTTP API."
-            )
-    
+        print(f"Warning: Embedding service at {EMBEDDING_SERVICE_URL} is not healthy (will retry on requests)")
+
     storage_service = StorageService(
         file_path=file_path,
         dim=dim,
@@ -106,7 +101,6 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/health")
 def health():
-    """Health check endpoint."""
     return {
         "status": "healthy",
         "index_loaded": indexing_service.is_index_loaded() if indexing_service else False,
@@ -118,9 +112,6 @@ def health():
 
 @app.post("/embed", response_model=InsertResponse)
 def embed_document(insert_request: InsertRequest):
-    """
-    Embed a document and store it in the vector database.
-    """
     global embedding_client, storage_service, indexing_service
     
     if embedding_client is None or storage_service is None or indexing_service is None:
@@ -133,7 +124,6 @@ def embed_document(insert_request: InsertRequest):
         content = insert_request.content
         embedding = embedding_client.embed_text(content)
         
-        # Create node
         node_id = storage_service.get_next_id()
         node = Node(
             id=node_id,
@@ -142,10 +132,7 @@ def embed_document(insert_request: InsertRequest):
             metadata=insert_request.metadata or {},
         )
         
-        # Save to storage
         storage_service.save(node)
-        
-        # Add to index
         indexing_service.insert_node(node)
         
         return InsertResponse(
@@ -164,9 +151,6 @@ from .models import InsertRequest, InsertResponse, QueryRequest, QueryResponse
 
 @app.post("/search", response_model=QueryResponse)
 def search_index(query_request: QueryRequest):
-    """
-    Search for nearest neighbors in the index with optional metadata filtering.
-    """
     global embedding_client, storage_service, indexing_service
     
     if embedding_client is None or storage_service is None or indexing_service is None:
@@ -176,29 +160,26 @@ def search_index(query_request: QueryRequest):
         )
     
     try:
-        # 1. Generate embedding for query
         query_embedding = embedding_client.embed_text(query_request.query)
         
-        # 2. Handle metadata filtering
         filter_ids = None
         if query_request.metadata_filter:
             filter_ids = storage_service.filter_by_metadata(query_request.metadata_filter)
             if not filter_ids:
-                # If filter returned nothing, no need to search index
                 return QueryResponse(
                     status_code=200,
                     results=[],
                     error=None
                 )
         
-        # 3. Search index
-        # Collect search arguments
         search_kwargs = {
-            "ef": query_request.ef,
             "filter_ids": filter_ids
         }
         
-        # Add optional/generic parameters
+        if query_request.ef is not None:
+            search_kwargs["ef"] = query_request.ef
+        if query_request.n_probe is not None:
+            search_kwargs["n_probe"] = query_request.n_probe
         if query_request.pq_chunks:
             search_kwargs["pq_chunks"] = query_request.pq_chunks
         if query_request.params:
@@ -210,7 +191,6 @@ def search_index(query_request: QueryRequest):
             **search_kwargs
         )
         
-        # 4. Format results
         formatted_results = []
         for node, dist in results:
             formatted_results.append({

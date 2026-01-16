@@ -13,12 +13,12 @@ class InsertResponse(BaseModel):
     error: Optional[str] = None
 class QueryRequest(BaseModel):
     query: str
-    top_k: int = 5
+    top_k: int
     metadata_filter: Optional[Dict[str, Any]] = None
-    pq_chunks: Optional[int] = None  # For PQ-enabled searches
-    ef: int = 50  # For HNSW
-    n_probe: int = 10  # For IVF
-    params: Optional[Dict[str, Any]] = None # For any additional parameters
+    pq_chunks: Optional[int] = None
+    ef: Optional[int] = None
+    n_probe: Optional[int] = None
+    params: Optional[Dict[str, Any]] = None
 
 
 class QueryResponse(BaseModel):

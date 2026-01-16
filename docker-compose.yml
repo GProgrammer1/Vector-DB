@@ -5,11 +5,14 @@ services:
     build:
       context: .
       dockerfile: docker/embedding-service/Dockerfile
+      args:
+        # Default to CPU version. For GPU, override with:
+        # docker-compose build --build-arg PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cu121 embedding-service
+        PYTORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
     container_name: vector-db-embedding
     ports:
       - "8001:8001"
-    volumes:
-      - ./src/config.yaml:/app/config.yaml:ro,Z
+    # Config file is copied into image, no volume mount needed
     environment:
       - CONFIG_PATH=/app/config.yaml
       - HF_HUB_OFFLINE=1
@@ -19,6 +22,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - vdb-net
     # Allow scaling independently (can scale GPU instances separately)
     deploy:
       replicas: 1
@@ -35,8 +40,7 @@ services:
       - ./src/config.yaml:/app/config.yaml:ro,Z
     environment:
       - CONFIG_PATH=/app/config.yaml
-      - USE_EMBEDDING_SERVICE=true
-      - EMBEDDING_SERVICE_URL=http://embedding-service:8001
+      - EMBEDDING_SERVICE_URL=http://vector-db-embedding:8001
     depends_on:
       - embedding-service
     healthcheck:
@@ -45,6 +49,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - vdb-net
     # Allow scaling independently
     deploy:
       replicas: 1
+networks:
+  vdb-net:
+    driver: bridge
