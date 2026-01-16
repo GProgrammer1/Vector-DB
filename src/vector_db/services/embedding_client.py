@@ -2,7 +2,7 @@
 
 import numpy as np
 import time
-from typing import List, Optional
+from typing import List, Optional, Union, Any
 import httpx
 from pathlib import Path
 
@@ -23,7 +23,7 @@ class EmbeddingClient:
         self.use_async = use_async
         
         if use_async:
-            self._client = httpx.AsyncClient(timeout=timeout)
+            self._client: Union[httpx.AsyncClient, httpx.Client] = httpx.AsyncClient(timeout=timeout)
         else:
             self._client = httpx.Client(timeout=timeout)
     

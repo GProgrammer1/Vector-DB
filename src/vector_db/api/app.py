@@ -3,7 +3,7 @@ import yaml
 import os
 from pathlib import Path
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, Dict, Any, Set
 from fastapi import FastAPI, HTTPException
 
 from .models import InsertRequest, InsertResponse
@@ -60,7 +60,8 @@ async def lifespan(app: FastAPI):
 
     dim = embedding_config["dimension"]
         
-    
+    if not EMBEDDING_SERVICE_URL:
+        raise ValueError("EMBEDDING_SERVICE_URL environment variable is required")
     embedding_client = EmbeddingClient(base_url=EMBEDDING_SERVICE_URL, use_async=False)
     if embedding_client.health_check():
         print(f"Embedding service client initialized (URL: {EMBEDDING_SERVICE_URL})")
@@ -162,7 +163,7 @@ def search_index(query_request: QueryRequest):
     try:
         query_embedding = embedding_client.embed_text(query_request.query)
         
-        filter_ids = None
+        filter_ids: Optional[Set[int]] = None
         if query_request.metadata_filter:
             filter_ids = storage_service.filter_by_metadata(query_request.metadata_filter)
             if not filter_ids:
@@ -172,7 +173,7 @@ def search_index(query_request: QueryRequest):
                     error=None
                 )
         
-        search_kwargs = {
+        search_kwargs: Dict[str, Any] = {
             "filter_ids": filter_ids
         }
         
