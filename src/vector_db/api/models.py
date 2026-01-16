@@ -11,6 +11,8 @@ class InsertResponse(BaseModel):
     status_code: int
     message: str
     error: Optional[str] = None
+
+
 class QueryRequest(BaseModel):
     query: str
     top_k: int
