@@ -27,21 +27,26 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.20.0",
     "pydantic>=2.0.0",
-    "httpx>=0.24.0",  # HTTP client for decoupled service communication
-
-    # PyTorch CPU version (default, no CUDA dependencies)
-    # Users with NVIDIA GPUs can install GPU version separately:
-    # pip install torch --index-url https://download.pytorch.org/whl/cu121
-    "torch>=2.0.0",
-    "sentence-transformers>=2.2.0",
-    "transformers>=4.30.0",
-    "tokenizers>=0.13.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.24.0",
+    "slowapi>=0.1.9",
 
     "pyyaml>=6.0.0",
     "locust>=2.0.0",
 ]
 
 [project.optional-dependencies]
+cpu = [
+    "sentence-transformers>=2.2.0",
+    "transformers>=4.30.0",
+    "tokenizers>=0.13.0",
+]
+gpu = [
+    "sentence-transformers>=2.2.0",
+    "transformers>=4.30.0",
+    "tokenizers>=0.13.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",

@@ -7,18 +7,32 @@ class InsertRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+class BatchInsertRequest(BaseModel):
+    documents: List[Dict[str, Any]] 
+
+
 class InsertResponse(BaseModel):
     status_code: int
     message: str
     error: Optional[str] = None
+
+
+class BatchInsertResponse(BaseModel):
+    status_code: int
+    message: str
+    inserted_count: int
+    inserted_ids: List[int]
+    error: Optional[str] = None
+
+
 class QueryRequest(BaseModel):
     query: str
-    top_k: int = 5
+    top_k: int
     metadata_filter: Optional[Dict[str, Any]] = None
-    pq_chunks: Optional[int] = None  # For PQ-enabled searches
-    ef: int = 50  # For HNSW
-    n_probe: int = 10  # For IVF
-    params: Optional[Dict[str, Any]] = None # For any additional parameters
+    pq_chunks: Optional[int] = None
+    ef: Optional[int] = None
+    n_probe: Optional[int] = None
+    params: Optional[Dict[str, Any]] = None
 
 
 class QueryResponse(BaseModel):

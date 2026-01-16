@@ -1,4 +1,3 @@
-"""Tests for MemoryMappingService."""
 
 import numpy as np
 import pytest
@@ -11,10 +10,8 @@ from vector_db.inference.mmap_vector_store import MemoryMappingService
 
 
 class TestMemoryMappingService:
-    """Test suite for MemoryMappingService."""
 
     def _create_temp_config(self, tmpdir: str) -> str:
-        """Create a temporary config file for testing."""
         config_path = os.path.join(tmpdir, "config.yaml")
         config = {
             "index": {
@@ -27,7 +24,6 @@ class TestMemoryMappingService:
         return config_path
 
     def test_init_valid_params(self):
-        """Test initialization with valid parameters."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -44,7 +40,6 @@ class TestMemoryMappingService:
             assert service.file_path == Path(tmp_path)
 
     def test_init_invalid_dim(self):
-        """Test initialization with invalid dimension."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -58,7 +53,6 @@ class TestMemoryMappingService:
                 )
 
     def test_init_invalid_capacity(self):
-        """Test initialization with invalid capacity."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -72,7 +66,6 @@ class TestMemoryMappingService:
                 )
 
     def test_init_missing_config_path(self):
-        """Test initialization without config_path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = os.path.join(tmpdir, "vectors")
             
@@ -84,7 +77,6 @@ class TestMemoryMappingService:
                 )
 
     def test_write_single_embedding(self):
-        """Test writing a single embedding."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -104,7 +96,6 @@ class TestMemoryMappingService:
             assert service.size == 1
 
     def test_write_multiple_embeddings(self):
-        """Test writing multiple embeddings."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -128,7 +119,6 @@ class TestMemoryMappingService:
             assert service.size == 3
 
     def test_write_with_content_and_metadata(self):
-        """Test writing with content and metadata."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -153,7 +143,6 @@ class TestMemoryMappingService:
             assert node.metadata["num"] == 42
 
     def test_write_invalid_type(self):
-        """Test writing with invalid type."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -168,7 +157,6 @@ class TestMemoryMappingService:
                 service.write([1.0, 2.0, 3.0, 4.0])
 
     def test_write_wrong_dimension(self):
-        """Test writing with wrong array dimension."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -179,13 +167,11 @@ class TestMemoryMappingService:
                 capacity=10,
                 config_path=config_path
             )
-            # 2D array instead of 1D
             embedding = np.array([[1.0, 2.0, 3.0, 4.0]], dtype=np.float32)
             with pytest.raises(ValueError, match="Embedding must be a 1D array"):
                 service.write(embedding)
 
     def test_write_wrong_size(self):
-        """Test writing with wrong embedding size."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -201,7 +187,6 @@ class TestMemoryMappingService:
                 service.write(embedding)
 
     def test_read_single_embedding(self):
-        """Test reading a single embedding."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -221,7 +206,6 @@ class TestMemoryMappingService:
             np.testing.assert_array_equal(node.embedding, embedding)
 
     def test_read_multiple_embeddings(self):
-        """Test reading multiple embeddings."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -246,7 +230,6 @@ class TestMemoryMappingService:
                 np.testing.assert_array_equal(node.embedding, expected_emb)
 
     def test_read_invalid_index_type(self):
-        """Test reading with invalid index type."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -261,7 +244,6 @@ class TestMemoryMappingService:
                 service.read("0")
 
     def test_read_nonexistent_node(self):
-        """Test reading a non-existent node."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -277,7 +259,6 @@ class TestMemoryMappingService:
                 service.read(999)
 
     def test_get_embedding(self):
-        """Test getting embedding directly."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -295,7 +276,6 @@ class TestMemoryMappingService:
             np.testing.assert_array_equal(retrieved_emb, embedding)
 
     def test_delete(self):
-        """Test deleting a node."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -318,7 +298,6 @@ class TestMemoryMappingService:
                 service.read(node_id)
 
     def test_search(self):
-        """Test search functionality."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")
@@ -344,12 +323,11 @@ class TestMemoryMappingService:
             
             assert len(results) > 0
             assert len(results) <= 2
-            # First result should be the query itself (distance ~0)
+            
             first_node, first_dist = results[0]
             assert first_dist < 1e-6
 
     def test_persistence(self):
-        """Test that data persists when reopening the file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = self._create_temp_config(tmpdir)
             tmp_path = os.path.join(tmpdir, "vectors")

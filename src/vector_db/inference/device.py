@@ -15,24 +15,7 @@ DeviceType = Literal["cpu", "cuda", "mps", "auto"]
 
 
 def get_device(device: Optional[DeviceType] = "auto") -> str:
-    """
-    Get the appropriate device string for PyTorch operations.
-
-    Args:
-        device: Device preference. Options:
-            - "auto": Automatically select the best available device
-            - "cpu": Force CPU usage
-            - "cuda": Use CUDA if available, otherwise CPU
-            - "mps": Use Apple Metal Performance Shaders if available (Apple Silicon)
-
-    Returns:
-        Device string ("cpu", "cuda", or "mps")
-
-    Examples:
-        >>> device = get_device()  # Auto-detect
-        >>> device = get_device("cpu")  # Force CPU
-        >>> device = get_device("cuda")  # Use GPU if available
-    """
+    
     if not TORCH_AVAILABLE:
         return "cpu"
 
@@ -43,7 +26,6 @@ def get_device(device: Optional[DeviceType] = "auto") -> str:
         return "cuda" if torch.cuda.is_available() else "cpu"
 
     if device == "mps":
-        # Apple Silicon GPU support
         if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             return "mps"
         return "cpu"
@@ -57,12 +39,7 @@ def get_device(device: Optional[DeviceType] = "auto") -> str:
 
 
 def is_gpu_available() -> bool:
-    """
-    Check if GPU (CUDA or MPS) is available.
-
-    Returns:
-        True if GPU is available, False otherwise
-    """
+   
     if not TORCH_AVAILABLE:
         return False
     cuda_available = torch.cuda.is_available()
@@ -74,15 +51,12 @@ def is_gpu_available() -> bool:
 
 def get_device_info() -> Dict[str, Any]:
     """
-    Get information about available devices.
-
     Returns:
-        Dictionary with device information including:
-        - device: Current device string
-        - cuda_available: Whether CUDA is available
-        - mps_available: Whether MPS (Apple Silicon) is available
-        - cuda_device_count: Number of CUDA devices
-        - cuda_device_name: Name of CUDA device (if available)
+        - device
+        - cuda_available
+        - mps_available
+        - cuda_device_count
+        - cuda_device_name (if available)
     """
     info: Dict[str, Any] = {
         "device": get_device(),

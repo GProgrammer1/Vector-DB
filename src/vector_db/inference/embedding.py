@@ -6,27 +6,13 @@ from vector_db.inference.device import DeviceType, get_device
 
 
 class EmbeddingService:
-    """Service for generating embeddings from text using sentence transformers."""
 
     def __init__(
         self,
         model: SentenceTransformer,
         device: Optional[DeviceType] = "auto",
     ):
-        """
-        Initialize the embedding service.
-
-        Args:
-            model: SentenceTransformer model instance
-            device: Device to use for inference. Options:
-                - "auto": Automatically select best available device (CPU/GPU)
-                - "cpu": Force CPU usage
-                - "cuda": Use CUDA GPU if available
-                - "mps": Use Apple Silicon GPU if available
-
-        Raises:
-            ValueError: If model is None
-        """
+        
         if model is None:
             raise ValueError("Model is required")
 

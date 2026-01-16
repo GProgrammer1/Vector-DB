@@ -25,7 +25,6 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def dummy_config_file():
-    """Create a dummy config file for tests."""
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=".yaml") as f:
         f.write("""
 embedding:
@@ -47,7 +46,6 @@ vector_db:
 
 @pytest.fixture
 def temp_data_dir(dummy_config_file):
-    """Create temporary data directory."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # Update config to use temp directory
         with open(dummy_config_file, 'r') as f:
@@ -61,7 +59,6 @@ def temp_data_dir(dummy_config_file):
 
 @pytest.fixture
 def initialized_app(temp_data_dir):
-    """Initialize app with test services."""
     tmpdir, config_path = temp_data_dir
     
     # Initialize services
@@ -94,10 +91,8 @@ def initialized_app(temp_data_dir):
 
 
 class TestEmbedAPI:
-    """Integration tests for /embed endpoint."""
 
     def test_embed_first_document(self, initialized_app, temp_data_dir):
-        """Test embedding first document (creates new index)."""
         client = TestClient(initialized_app)
         
         response = client.post(
@@ -116,7 +111,6 @@ class TestEmbedAPI:
         assert "index" in data["message"]
 
     def test_embed_multiple_documents(self, initialized_app, temp_data_dir):
-        """Test embedding multiple documents (index grows)."""
         client = TestClient(initialized_app)
         
         # First document
@@ -145,7 +139,6 @@ class TestEmbedAPI:
         assert response3.json()["status_code"] == 200
 
     def test_embed_with_metadata(self, initialized_app, temp_data_dir):
-        """Test embedding with metadata."""
         client = TestClient(initialized_app)
         
         response = client.post(
@@ -165,7 +158,6 @@ class TestEmbedAPI:
         assert data["status_code"] == 200
 
     def test_embed_empty_content(self, initialized_app, temp_data_dir):
-        """Test embedding empty content (should still work)."""
         client = TestClient(initialized_app)
         
         response = client.post(
@@ -188,7 +180,6 @@ class TestEmbedAPI:
         assert "storage_size" in data
 
     def test_index_persistence(self, initialized_app, temp_data_dir):
-        """Test that index persists across requests."""
         client = TestClient(initialized_app)
         tmpdir, config_path = temp_data_dir
         

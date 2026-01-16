@@ -14,10 +14,8 @@ from vector_db.util.distance import euclidean_vector_distance
 
 
 class TestHNSW:
-    """Test suite for HNSW index."""
 
     def test_initialization(self):
-        """Test HNSW initialization."""
         rng = random.Random(42)
         storage = InMemoryNodeStorage()
         hnsw = HNSW(M=16, ef_construction=100, rng=rng, storage=storage)
@@ -29,7 +27,6 @@ class TestHNSW:
         assert hnsw.max_level == -1
 
     def test_insert_single_node(self):
-        """Test inserting a single node."""
         rng = random.Random(42)
         storage = InMemoryNodeStorage()
         hnsw = HNSW(M=16, ef_construction=100, rng=rng, storage=storage)
@@ -49,7 +46,6 @@ class TestHNSW:
         np.testing.assert_array_equal(stored_node.embedding, vec)
 
     def test_insert_multiple_nodes(self):
-        """Test inserting multiple nodes."""
         rng = random.Random(42)
         storage = InMemoryNodeStorage()
         hnsw = HNSW(M=4, ef_construction=10, rng=rng, storage=storage)
@@ -68,7 +64,6 @@ class TestHNSW:
         assert storage.size() == num_nodes
 
     def test_build_index(self):
-        """Test building index from list of nodes."""
         rng = random.Random(42)
         storage = InMemoryNodeStorage()
         hnsw = HNSW(M=4, ef_construction=10, rng=rng, storage=storage)
@@ -87,7 +82,6 @@ class TestHNSW:
         assert storage.size() == num_nodes
 
     def test_search_basic(self):
-        """Test basic search functionality."""
         rng = random.Random(42)
         storage = InMemoryNodeStorage()
         hnsw = HNSW(M=4, ef_construction=10, rng=rng, storage=storage)
@@ -99,13 +93,12 @@ class TestHNSW:
         ]
         hnsw.build_index(nodes)
         
-        # Search for nearest neighbor
         query = nodes[0].embedding
         results = hnsw.search(query, k=5, ef=20)
         
         assert len(results) > 0
         assert len(results) <= 5
-        # First result should be the query node itself (distance ~0)
+        # First result should be the query node itself
         first_node, first_dist = results[0]
         assert first_node.id == 0
         assert first_dist < 1e-6
@@ -124,7 +117,6 @@ class TestHNSW:
         ]
         hnsw.build_index(nodes)
         
-        # Brute force search
         def brute_force_search(query, k):
             distances = []
             for node in nodes:
@@ -133,7 +125,6 @@ class TestHNSW:
             distances.sort()
             return [node_id for _, node_id in distances[:k]]
         
-        # Test multiple queries
         num_queries = 10
         k = 5
         passes = 0
@@ -146,14 +137,12 @@ class TestHNSW:
             result_ids = {node.id for node, _ in results}
             
             recall = len(gt_ids.intersection(result_ids)) / k
-            if recall >= 0.7:  # 70% recall threshold
+            if recall >= 0.7: 
                 passes += 1
         
-        # Expect at least 80% of queries to have good recall
         assert passes >= num_queries * 0.8
 
     def test_graph_connectivity(self):
-        """Test that graph is well-connected."""
         rng = random.Random(42)
         storage = InMemoryNodeStorage()
         hnsw = HNSW(M=4, ef_construction=20, rng=rng, storage=storage)
@@ -181,11 +170,9 @@ class TestHNSW:
                     visited.add(neighbor_id)
                     queue.append(neighbor_id)
         
-        # Graph should be well-connected (at least 90% of nodes reachable)
         assert len(visited) >= num_nodes * 0.9
 
     def test_delete_node(self):
-        """Test deleting a node from index."""
         rng = random.Random(42)
         # Use MMapNodeStorage which supports delete
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -210,7 +197,6 @@ class TestHNSW:
             initial_size = len(hnsw.node_store)
             assert initial_size == 20
             
-            # Delete a node
             hnsw.delete_node(5)
             
             assert 5 not in hnsw.node_store
@@ -218,7 +204,6 @@ class TestHNSW:
             assert len(hnsw.node_store) == initial_size - 1
 
     def test_index_persistence(self):
-        """Test saving and loading index."""
         rng = random.Random(42)
         storage = InMemoryNodeStorage()
         
@@ -234,12 +219,10 @@ class TestHNSW:
             ]
             hnsw1.build_index(nodes)
             
-            # Verify index file was created
             assert index_file.exists()
             
             # Load index
             storage2 = InMemoryNodeStorage()
-            # Re-add nodes to storage (since we're using InMemoryNodeStorage)
             for node in nodes:
                 storage2.save(node)
             
@@ -250,13 +233,11 @@ class TestHNSW:
             assert hnsw2.entry_node_id == hnsw1.entry_node_id
             assert hnsw2.max_level == hnsw1.max_level
             
-            # Verify search works
             query = nodes[0].embedding
             results = hnsw2.search(query, k=5, ef=20)
             assert len(results) > 0
 
     def test_hnsw_with_mmap_storage(self):
-        """Test HNSW with MMapNodeStorage."""
         rng = random.Random(42)
         
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -273,7 +254,6 @@ class TestHNSW:
             
             hnsw = HNSW(M=4, ef_construction=10, rng=rng, storage=storage, index_file=index_file)
             
-            # Insert nodes
             dim = 8
             nodes = [
                 Node(id=i, embedding=np.random.rand(dim).astype(np.float32), content=f"node_{i}")
@@ -281,15 +261,12 @@ class TestHNSW:
             ]
             hnsw.build_index(nodes)
             
-            # Verify storage
             assert storage.size() == 20
             
-            # Test search
             query = nodes[0].embedding
             results = hnsw.search(query, k=5, ef=20)
             assert len(results) > 0
             
-            # Test persistence
             storage.close()
             del hnsw
             
@@ -302,12 +279,10 @@ class TestHNSW:
             )
             hnsw2 = HNSW(M=4, ef_construction=10, rng=rng, storage=storage2, index_file=index_file)
             
-            # Verify search still works
             results2 = hnsw2.search(query, k=5, ef=20)
             assert len(results2) > 0
 
     def test_idempotent_insert(self):
-        """Test that inserting the same node twice is idempotent."""
         rng = random.Random(42)
         storage = InMemoryNodeStorage()
         hnsw = HNSW(M=4, ef_construction=10, rng=rng, storage=storage)
@@ -321,7 +296,5 @@ class TestHNSW:
         
         hnsw.insert_node(node)
         
-        # Should not duplicate
         assert len(hnsw.node_store) == 1
-        # Neighbors should be the same (idempotent)
         assert hnsw.node_store[0].neighbors == initial_neighbors

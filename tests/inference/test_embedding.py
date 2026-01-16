@@ -1,10 +1,8 @@
-"""Tests for EmbeddingService."""
 
 import numpy as np
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
-# Mock sentence_transformers before importing
 import sys
 mock_sentence_transformers = MagicMock()
 sys.modules['sentence_transformers'] = mock_sentence_transformers
@@ -13,10 +11,8 @@ from vector_db.inference.embedding import EmbeddingService
 
 
 class TestEmbeddingService:
-    """Test suite for EmbeddingService."""
 
     def test_init_with_valid_model(self):
-        """Test initialization with a valid model."""
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         
@@ -28,12 +24,10 @@ class TestEmbeddingService:
             mock_model.to.assert_called_once_with("cpu")
 
     def test_init_with_none_model(self):
-        """Test initialization with None model raises ValueError."""
         with pytest.raises(ValueError, match="Model is required"):
             EmbeddingService(None)
 
     def test_init_with_auto_device(self):
-        """Test initialization with auto device selection."""
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         
@@ -45,7 +39,6 @@ class TestEmbeddingService:
             mock_model.to.assert_called_once_with("cpu")
 
     def test_init_with_cpu_device(self):
-        """Test initialization with explicit CPU device."""
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         
@@ -56,7 +49,6 @@ class TestEmbeddingService:
             mock_model.to.assert_called_once_with("cpu")
 
     def test_init_with_cuda_device(self):
-        """Test initialization with CUDA device."""
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         
@@ -67,7 +59,6 @@ class TestEmbeddingService:
             mock_model.to.assert_called_once_with("cuda")
 
     def test_embed_text(self):
-        """Test embedding a single text."""
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         expected_embedding = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
@@ -82,7 +73,6 @@ class TestEmbeddingService:
             mock_model.encode.assert_called_once_with("test text", device="cpu")
 
     def test_embed_texts(self):
-        """Test embedding multiple texts."""
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         expected_embeddings = np.array([
@@ -102,7 +92,6 @@ class TestEmbeddingService:
             mock_model.encode.assert_called_once_with(texts, device="cpu")
 
     def test_embed_texts_empty_list(self):
-        """Test embedding empty list of texts."""
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         expected_embeddings = np.array([]).reshape(0, 384)  # Empty array
@@ -116,7 +105,6 @@ class TestEmbeddingService:
             mock_model.encode.assert_called_once_with([], device="cpu")
 
     def test_embed_text_with_different_devices(self):
-        """Test that device parameter is passed correctly to encode."""
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         mock_model.encode = Mock(return_value=np.array([0.1, 0.2, 0.3]))

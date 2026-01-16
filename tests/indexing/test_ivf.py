@@ -12,10 +12,8 @@ from vector_db.util.distance import euclidean_vector_distance
 
 
 class TestIVF:
-    """Test suite for IVF index."""
 
     def test_initialization(self):
-        """Test IVF initialization."""
         ivf = IvfIndex(k=10)
         
         assert ivf.k == 10
@@ -23,7 +21,6 @@ class TestIVF:
         assert len(ivf.inverted_lists) == 0
 
     def test_build_index(self):
-        """Test building IVF index."""
         k = 4
         dim = 8
         num_nodes = 50
@@ -45,14 +42,12 @@ class TestIVF:
         assert storage.size() == num_nodes
 
     def test_build_index_empty_list(self):
-        """Test building index with empty node list."""
         ivf = IvfIndex(k=4)
         
         with pytest.raises(ValueError, match="Cannot build index with empty node list"):
             ivf.build_index([])
 
     def test_build_index_insufficient_nodes(self):
-        """Test building index with fewer nodes than clusters."""
         ivf = IvfIndex(k=10)
         
         nodes = [
@@ -64,7 +59,6 @@ class TestIVF:
             ivf.build_index(nodes)
 
     def test_add_node(self):
-        """Test adding a node to existing index."""
         k = 4
         dim = 8
         storage = InMemoryNodeStorage()
@@ -94,7 +88,6 @@ class TestIVF:
         assert found
 
     def test_add_node_before_build(self):
-        """Test adding node before building index."""
         ivf = IvfIndex(k=4)
         node = Node(id=0, embedding=np.random.rand(8).astype(np.float32))
         
@@ -102,7 +95,6 @@ class TestIVF:
             ivf.add(node)
 
     def test_search_basic(self):
-        """Test basic search functionality."""
         k = 4
         dim = 8
         storage = InMemoryNodeStorage()
@@ -125,7 +117,6 @@ class TestIVF:
         assert first_dist < 1e-6
 
     def test_search_recall(self):
-        """Test search recall against brute force."""
         k = 4
         dim = 16
         num_nodes = 100
@@ -167,7 +158,6 @@ class TestIVF:
         assert passes >= num_queries * 0.7
 
     def test_search_invalid_n_probe(self):
-        """Test search with invalid n_probe."""
         k = 4
         dim = 8
         ivf = IvfIndex(k=k)
@@ -187,7 +177,6 @@ class TestIVF:
             ivf.search(query, n_probe=10, top_k=5)  # > k
 
     def test_search_before_build(self):
-        """Test searching before building index."""
         ivf = IvfIndex(k=4)
         query = np.random.rand(8).astype(np.float32)
         
@@ -195,7 +184,6 @@ class TestIVF:
             ivf.search(query, n_probe=2, top_k=5)
 
     def test_delete_node(self):
-        """Test deleting a node from index."""
         k = 4
         dim = 8
         
@@ -229,7 +217,6 @@ class TestIVF:
                 assert 5 not in lst
 
     def test_get_cluster_size(self):
-        """Test getting cluster size."""
         k = 4
         dim = 8
         ivf = IvfIndex(k=k)
@@ -252,7 +239,6 @@ class TestIVF:
             ivf.get_cluster_size(k)
 
     def test_get_cluster_stats(self):
-        """Test getting cluster statistics."""
         k = 4
         dim = 8
         ivf = IvfIndex(k=k)
@@ -275,7 +261,6 @@ class TestIVF:
         assert stats["avg_size"] == stats["total_vectors"] / k
 
     def test_index_persistence(self):
-        """Test saving and loading index."""
         k = 4
         dim = 8
         storage = InMemoryNodeStorage()
@@ -313,7 +298,6 @@ class TestIVF:
             assert len(results) > 0
 
     def test_ivf_with_mmap_storage(self):
-        """Test IVF with MMapNodeStorage."""
         k = 4
         dim = 8
         

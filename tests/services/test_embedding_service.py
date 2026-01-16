@@ -1,4 +1,3 @@
-"""Unit tests for EmbeddingService."""
 
 import numpy as np
 import pytest
@@ -21,7 +20,6 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture
 def dummy_config_file():
-    """Create a dummy config file for tests."""
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=".yaml") as f:
         f.write("""
 embedding:
@@ -42,19 +40,16 @@ vector_db:
 
 
 class TestEmbeddingService:
-    """Test suite for EmbeddingService."""
 
     @patch('vector_db.services.embedding_service._SENTENCE_TRANSFORMERS_AVAILABLE', True)
     @patch('vector_db.services.embedding_service.SentenceTransformer')
     @patch('vector_db.services.embedding_service.BaseEmbeddingService')
     def test_init(self, mock_base_service, mock_sentence_transformer, dummy_config_file):
-        """Test service initialization."""
-        # Mock SentenceTransformer
+        
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         mock_sentence_transformer.return_value = mock_model
         
-        # Mock BaseEmbeddingService
         mock_base_instance = Mock()
         mock_base_service.return_value = mock_base_instance
         
@@ -65,13 +60,10 @@ class TestEmbeddingService:
     @patch('vector_db.services.embedding_service.SentenceTransformer')
     @patch('vector_db.services.embedding_service.BaseEmbeddingService')
     def test_embed_text(self, mock_base_service, mock_sentence_transformer, dummy_config_file):
-        """Test embedding a single text."""
-        # Mock SentenceTransformer
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         mock_sentence_transformer.return_value = mock_model
         
-        # Mock the base embedding service
         mock_service_instance = Mock()
         expected_embedding = np.random.rand(384).astype(np.float32)
         mock_service_instance.embed_text = Mock(return_value=expected_embedding)
@@ -89,13 +81,10 @@ class TestEmbeddingService:
     @patch('vector_db.services.embedding_service.SentenceTransformer')
     @patch('vector_db.services.embedding_service.BaseEmbeddingService')
     def test_embed_texts(self, mock_base_service, mock_sentence_transformer, dummy_config_file):
-        """Test embedding multiple texts."""
-        # Mock SentenceTransformer
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         mock_sentence_transformer.return_value = mock_model
         
-        # Mock the base embedding service
         mock_service_instance = Mock()
         expected_embeddings = np.random.rand(3, 384).astype(np.float32)
         mock_service_instance.embed_texts = Mock(return_value=expected_embeddings)
@@ -114,13 +103,10 @@ class TestEmbeddingService:
     @patch('vector_db.services.embedding_service.SentenceTransformer')
     @patch('vector_db.services.embedding_service.BaseEmbeddingService')
     def test_dimension_property(self, mock_base_service, mock_sentence_transformer, dummy_config_file):
-        """Test dimension property."""
-        # Mock SentenceTransformer
         mock_model = Mock()
         mock_model.to = Mock(return_value=mock_model)
         mock_sentence_transformer.return_value = mock_model
         
-        # Mock BaseEmbeddingService
         mock_base_instance = Mock()
         mock_base_service.return_value = mock_base_instance
         

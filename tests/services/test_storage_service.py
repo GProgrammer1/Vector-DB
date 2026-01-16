@@ -1,4 +1,3 @@
-"""Unit tests for StorageService."""
 
 import numpy as np
 import pytest
@@ -10,10 +9,8 @@ from vector_db.types import Node
 
 
 class TestStorageService:
-    """Test suite for StorageService."""
 
     def test_init(self):
-        """Test service initialization."""
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = Path(tmpdir) / "test_db"
             service = StorageService(
@@ -27,7 +24,6 @@ class TestStorageService:
             assert service.size() == 0
 
     def test_save_and_get(self):
-        """Test saving and retrieving nodes."""
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = Path(tmpdir) / "test_db"
             service = StorageService(
@@ -54,7 +50,6 @@ class TestStorageService:
             assert retrieved.metadata == {"key": "value"}
 
     def test_get_nonexistent(self):
-        """Test getting a non-existent node."""
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = Path(tmpdir) / "test_db"
             service = StorageService(
@@ -67,7 +62,6 @@ class TestStorageService:
             assert result is None
 
     def test_get_embedding(self):
-        """Test getting embedding by node ID."""
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = Path(tmpdir) / "test_db"
             service = StorageService(
@@ -84,7 +78,6 @@ class TestStorageService:
             np.testing.assert_array_equal(retrieved_embedding, embedding)
 
     def test_delete(self):
-        """Test deleting a node."""
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = Path(tmpdir) / "test_db"
             service = StorageService(
@@ -102,7 +95,6 @@ class TestStorageService:
             assert service.get(0) is None
 
     def test_get_next_id(self):
-        """Test getting next available ID."""
         with tempfile.TemporaryDirectory() as tmpdir:
             file_path = Path(tmpdir) / "test_db"
             service = StorageService(
@@ -113,7 +105,6 @@ class TestStorageService:
             
             assert service.get_next_id() == 0
             
-            # Save a node
             node = Node(id=0, embedding=np.random.rand(128).astype(np.float32))
             service.save(node)
             
@@ -137,7 +128,6 @@ class TestStorageService:
             )
             service1.save(node)
             
-            # Create second service instance (should load existing data)
             service2 = StorageService(
                 file_path=str(file_path),
                 dim=128,
