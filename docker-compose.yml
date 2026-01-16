@@ -12,10 +12,13 @@ services:
     container_name: vector-db-embedding
     ports:
       - "8001:8001"
+    volumes:
+      - ./shared:/app/shared:Z
     # Config file is copied into image, no volume mount needed
     environment:
       - CONFIG_PATH=/app/config.yaml
       - HF_HUB_OFFLINE=1
+      - MMAP_SHARED_DIR=/app/shared
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://127.0.0.1:8001/health" ]
       interval: 10s
@@ -38,9 +41,10 @@ services:
     volumes:
       - ./data:/app/data:Z
       - ./src/config.yaml:/app/config.yaml:ro,Z
+      - ./shared:/app/shared:Z
     environment:
       - CONFIG_PATH=/app/config.yaml
-      - EMBEDDING_SERVICE_URL=http://vector-db-embedding:8001
+      - MMAP_SHARED_DIR=/app/shared
     depends_on:
       - embedding-service
     healthcheck:

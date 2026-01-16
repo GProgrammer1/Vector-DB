@@ -7,9 +7,21 @@ class InsertRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+class BatchInsertRequest(BaseModel):
+    documents: List[Dict[str, Any]] 
+
+
 class InsertResponse(BaseModel):
     status_code: int
     message: str
+    error: Optional[str] = None
+
+
+class BatchInsertResponse(BaseModel):
+    status_code: int
+    message: str
+    inserted_count: int
+    inserted_ids: List[int]
     error: Optional[str] = None
 
 

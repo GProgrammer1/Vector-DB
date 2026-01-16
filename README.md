@@ -22,11 +22,10 @@ The system uses a **decoupled microservices architecture** that separates GPU-in
 
 ### Key Features
 
-- **HNSW Indexing**: Hierarchical Navigable Small World graph for fast approximate nearest neighbor search
-- **Memory-Mapped Storage**: Two-layer memmap storage for efficient disk-backed persistence
-- **Product Quantization**: Compression technique for reducing memory footprint
+- **Bimodal Indexing Strategy**: Option to pick indexing engine, either HNSW  or IVF + PQ (Product Quantization) (both built from scratch)
+- **Memory-Mapped Storage**: Two-layer memmap storage for efficient disk-backed persistence (first layer for embeddings, second layer for content and metadata)
+- **RESTful APIs**: Storage and retrieval apis provided by a microservices FastAPI interface
 - **Threshold-Based Persistence**: Automatic index flushing when memory threshold is reached
-- **Docker Containerization**: Fully containerized services with docker-compose orchestration
 
 ## Installation
 
@@ -357,7 +356,8 @@ curl -X POST http://localhost:8000/search \
 
 ### Indexing Service (Port 8000)
 
-- `POST /embed` - Embed a document and add to index
+- `POST /embed` - Embed a document and add to index (async, 50MB max document size)
+- `POST /search` - Search for similar documents
 - `GET /health` - Health check with index status
 
 ### Embedding Service (Port 8001)
@@ -366,13 +366,61 @@ curl -X POST http://localhost:8000/search \
 - `POST /embed/batch` - Embed multiple texts
 - `GET /health` - Health check
 
+### Features
+
+- **Async Processing**: The `/embed` endpoint is fully asynchronous and supports concurrent requests
+- **Size Limits**: Documents are limited to 50MB to prevent resource exhaustion
+- **Mmap IPC**: Optional memory-mapped file-based IPC for inter-container communication (see Configuration)
+
 ## Configuration
+
+### Application Configuration
 
 Edit `src/config.yaml` to configure:
 
 - Embedding model and dimension
 - Index parameters (M, ef_construction, flush_threshold)
 - Storage capacity and file paths
+
+### Rate Limiting
+
+Rate limiting is enabled on all API endpoints to prevent abuse. Limits are configurable via environment variables:
+
+**Indexing Service (Port 8000):**
+- `RATE_LIMIT_HEALTH` - Health check endpoint (default: `100/minute`)
+- `RATE_LIMIT_EMBED` - Document embedding endpoint (default: `30/minute`)
+- `RATE_LIMIT_SEARCH` - Search endpoint (default: `60/minute`)
+
+**Embedding Service (Port 8001):**
+- `RATE_LIMIT_HEALTH` - Health check endpoint (default: `200/minute`)
+- `RATE_LIMIT_EMBED` - Single text embedding (default: `100/minute`)
+- `RATE_LIMIT_BATCH` - Batch embedding (default: `50/minute`)
+
+Example:
+```bash
+export RATE_LIMIT_SEARCH="120/minute"
+export RATE_LIMIT_EMBED="60/minute"
+```
+
+Rate limits are per IP address. When a limit is exceeded, the API returns a `429 Too Many Requests` response.
+
+### Inter-Process Communication (IPC)
+
+Services communicate using memory-mapped file-based IPC for optimal performance. The shared directory is mounted as a volume in both containers, enabling efficient mmap-based communication with minimal latency.
+
+**Configuration:**
+```bash
+export MMAP_SHARED_DIR=/app/shared  # Default: /tmp/vector_db_shared
+```
+
+**Docker Compose:**
+The `./shared` directory is automatically mounted in both containers for mmap IPC communication.
+
+**Benefits:**
+- Lower latency than HTTP communication
+- Reduced network overhead
+- Efficient shared memory access
+- Better performance for high-throughput scenarios
 
 ## Development
 
@@ -386,16 +434,4 @@ mypy src/
 # Linting
 ruff check src/
 ```
-
-## Scaling Strategy
-
-### GPU Scaling (Embedding Service)
-- Scale embedding service instances based on GPU availability
-- Each instance can handle multiple concurrent requests
-- Use load balancer for distribution
-
-### CPU Scaling (Indexing Service)
-- Scale indexing service instances based on query load
-- Each instance maintains its own index copy or uses shared storage
-- Consider read replicas for high query throughput
 
